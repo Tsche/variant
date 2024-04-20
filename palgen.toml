@@ -1,0 +1,17 @@
+[palgen]
+output = "build"
+
+[palgen.extensions]
+folders = ["plugins"]
+inline = false
+
+[project]
+name = "slo"
+version = "0.1"
+sources = ["include", "benchmark"]
+
+[benchmark]
+output = "build"
+system_includes = ["include"]
+repeat_each = 5
+standard = "c++23"

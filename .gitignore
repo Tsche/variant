@@ -31,5 +31,20 @@
 *.out
 *.app
 
+# Python
+*.pyc
+**/__pycache__/
+
 # IDE files
 .vscode
+
+# Build files
+**/build/
+
+# misc
+compile_commands.json
+**/scratchpad.*
+
+# Caches
+.cache
+.pytest_cache

@@ -1,0 +1,1 @@
+target_sources(slo_test PRIVATE recursive.cpp tree.cpp)

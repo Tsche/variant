@@ -1,0 +1,14 @@
+source = "underlying.cpp"
+
+[query]
+"generate_tree" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'generate_union')].dur"
+"total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+
+[profile.Std]
+STANDARD_VARIANT = true
+
+[profile.Tree]
+TREE = true
+
+[profile.Recursive]
+RECURSIVE = true
