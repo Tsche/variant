@@ -19,16 +19,18 @@ jobs:
       run: dnf -y install conan
 
     - name: Set up Conan profile
-      run: conan profile detect
+      run: |
+        conan profile detect
+        cp .github/conan.profile `conan profile path default`
 
     - uses: actions/checkout@v3
     - name: Build
-      run: conan build . --build=missing -o sanitizers=True -s build_type=Debug -s compiler.cppstd=23 -s compiler.version=13.2
+      run: conan build . --build=missing -o sanitizers=True -s build_type=Debug
 
     - name: Test Package
       run: |
         conan editable add .
-        conan test test_package slo/0.1 -s build_type=Debug -s compiler.cppstd=23 -s compiler.version=13.2
+        conan test test_package slo/0.1 -s build_type=Debug
 
     - name: Test
       run: ./build/Debug/slo_test
