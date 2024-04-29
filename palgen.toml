@@ -2,7 +2,7 @@
 output = "build"
 
 [palgen.extensions]
-folders = ["plugins"]
+folders = ["tools"]
 inline = false
 
 [project]

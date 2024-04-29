@@ -1,121 +1,135 @@
 #pragma once
-#include <concepts>
 #include <cstddef>
-#include <memory>
-#include <utility>
+#include <concepts>
 #include <type_traits>
+#include <utility>
 
-#include "impl/union/tree.h"
-#include "impl/union/recursive.h"
-#include "impl/common.h"
+#include "impl/storage.h"
+#include "util/compat.h"
 #include "util/list.h"
-#include "impl/visit.h"
+#include "util/pack.h"
 
 namespace slo {
 template <typename... Ts>
+class Variant;
+
+template <std::size_t, typename>
+struct variant_alternative;
+
+template <std::size_t Idx, typename... Ts>
+struct variant_alternative<Idx, Variant<Ts...>> {
+  using type = util::pack::get<Idx, Variant<Ts...>>;
+};
+
+template <std::size_t Idx, typename... Ts>
+struct variant_alternative<Idx, Variant<Ts...> const> {
+  using type = util::pack::get<Idx, Variant<Ts...>> const;
+};
+
+template <std::size_t Idx, typename V>
+using variant_alternative_t = typename variant_alternative<Idx, std::remove_reference_t<V>>::type;
+
+template <std::size_t Idx, impl::has_get V>
+constexpr decltype(auto) get(V&& variant_) {
+  return std::forward<V>(variant_).template get<Idx>();
+}
+
+template <typename T, impl::has_get V>
+constexpr decltype(auto) get(V&& variant_) {
+  return std::forward<V>(variant_).template get<T>();
+}
+
+namespace impl {
+template <typename Variant, typename F, std::size_t... Is>
+constexpr decltype(auto) visit(Variant&& variant, F visitor, std::index_sequence<Is...>) {
+  using return_type = std::common_type_t<decltype(visitor(slo::get<Is>(std::forward<Variant>(variant))))...>;
+  if constexpr (std::same_as<return_type, void>) {
+    (void)((variant.index() == Is ? visitor(slo::get<Is>(std::forward<Variant>(variant))), true : false) || ...);
+  } else {
+    union {
+      char dummy;
+      return_type value;
+    } ret{};
+
+    bool const success =
+        ((variant.index() == Is ? std::construct_at(&ret.value, visitor(slo::get<Is>(std::forward<Variant>(variant)))),
+          true                  : false) ||
+         ...);
+
+    if (success) {
+      return ret.value;
+    }
+    std::unreachable();
+  }
+}
+}  // namespace impl
+
+template <typename F, typename Variant>
+constexpr decltype(auto) visit(F&& visitor, Variant&& variant) {
+#if defined(_MSC_VER)
+// TODO macro solution
+#else
+  return impl::visit(std::forward<Variant>(variant), std::forward<F>(visitor), util::to_index_sequence<Variant>{});
+#endif
+}
+
+template <typename... Ts>
 class Variant {
-public:
-  using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
-  static constexpr index_type npos = static_cast<index_type>(~0U);
-
-private:
-  template <typename... Us>
-    static consteval auto generate_union() -> impl::RecursiveUnion<Us...>;
-
-    template <typename... Us>
-      requires(sizeof...(Us) >= 42)
-    static consteval auto generate_union() -> util::to_cbt<impl::TreeUnion, Ts...>;
-  using union_type = decltype(generate_union<Ts...>());
-  union {
-    nullopt dummy;
-    union_type value;
-  };
-
-  index_type tag{npos};
+  using storage_type = impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>;
 
 public:
+  storage_type storage;
+  static constexpr auto npos = storage_type::npos;
+
   template <typename T>
   explicit Variant(T&& obj)
     requires(std::same_as<std::remove_reference_t<T>, Ts> || ...)
-      : value{std::in_place_index<impl::type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)}
-      , tag{impl::type_index<std::remove_reference_t<T>, Ts...>} {}
+      : storage{std::in_place_index<impl::type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)} {}
 
   template <std::size_t Idx, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args)
-      : value{idx, std::forward<Args>(args)...}
-      , tag{Idx} {}
+  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage{idx, std::forward<Args>(args)...} {}
 
   template <typename T, typename... Args>
   explicit Variant(std::in_place_type_t<T>, Args&&... args)
-      : value{std::in_place_index<impl::type_index<T, Ts...>>, std::forward<Args>(args)...}
-      , tag{impl::type_index<T, Ts...>} {}
+      : storage{std::in_place_index<impl::type_index<T, Ts...>>, std::forward<Args>(args)...} {}
 
-  constexpr Variant() 
-    requires (std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
-    : Variant(std::in_place_index<0>) {}
+  constexpr Variant()
+    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
+      : Variant(std::in_place_index<0>) {}
 
-  constexpr ~Variant() { reset(); }
+  constexpr Variant(Variant const&)  = default;
+  constexpr Variant(Variant&&)       = default;
+  Variant& operator=(Variant const&) = default;
+  Variant& operator=(Variant&&)      = default;
 
-  constexpr Variant(Variant const& other) {
-    visit([this](auto const& obj) { this->emplace(obj); }, other);
-  }
+  constexpr ~Variant() { storage.reset(); }
 
-  constexpr Variant(Variant&& other) {
-    visit([this]<typename T>(T&& obj) { this->emplace(std::move(obj)); }, std::move(other));
-  }
-
-  constexpr Variant& operator=(Variant const& other) {
-    if (this != std::addressof(other)) {
-      visit([this](auto const& obj) { this->emplace(obj); }, other);
-    }
-    return *this;
-  }
-
-  constexpr Variant& operator=(Variant&& other) {
-    if (this != std::addressof(other)) {
-      visit([this]<typename T>(T&& obj) { this->emplace(std::move(obj)); }, std::move(other));
-    }
-    return *this;
-  }
-
-  [[nodiscard]] constexpr std::size_t index() const { return tag; }
-
-  constexpr void reset() {
-    if (tag != npos){
-      visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
-      tag = npos;
-    }
-  }
-
-  template <typename T>
-  constexpr void emplace(T&& obj) {
-    reset();
-    constexpr auto idx = impl::type_index<T, Ts...>;
-    std::construct_at(&value, std::in_place_index<idx>, std::forward<T>(obj));
-    // the ctor didn't throw if this is reached, switch tag
-    tag = idx;
+  template <typename T, typename... Args>
+  constexpr void emplace(Args&&... args) {
+    storage.template emplace<impl::type_index<T, Ts...>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename... Args>
   constexpr void emplace(Args&&... args) {
-    reset();
-    std::construct_at(&value, std::in_place_index<Idx>, std::forward<Args>(args)...);
-    tag = Idx;
+    storage.template emplace<Idx>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return std::forward<Self>(self).value.template get<Idx>();
+    return slo::get<Idx>(std::forward<Self>(self).storage);
   }
 
   template <typename T, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return std::forward<Self>(self).template get<impl::type_index<T, Ts...>>();
+    return slo::get<impl::type_index<T, Ts...>>(std::forward<Self>(self).storage);
   }
 
-  constexpr bool valueless_by_exception() const noexcept{
-    return tag == npos;
+  template <typename Self, typename V>
+  constexpr decltype(auto) visit(this Self&& self, V&& visitor) {
+    return slo::visit(std::forward<V>(visitor), std::forward<Self>(self));
   }
+
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == npos; }
 };
 
 }  // namespace slo

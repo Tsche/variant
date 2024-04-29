@@ -1,13 +1,8 @@
-// #include <iostream>
-
 #include <utility>
 #include <slo/util/list.h>
-#include <slo/impl/get.h>
 
-#if defined(TREE)
-#  include <slo/impl/union/tree.h>
-#elif defined(RECURSIVE)
-#  include <slo/impl/union/recursive.h>
+#if defined(TREE) or defined(RECURSIVE)
+#  include <slo/variant.h>
 #else
 #  include <variant>
 #endif
@@ -41,11 +36,11 @@ auto generate_getters(std::index_sequence<Idx...>) {
   (
       [] {
         auto obj = T{std::in_place_index<Idx>};
-        #if defined(TREE) || defined(RECURSIVE)
+#if defined(TREE) || defined(RECURSIVE)
         using slo::get;
-        #else
+#else
         using std::get;
-        #endif
+#endif
         (void)get<Idx>(obj);
       }(),
       ...);

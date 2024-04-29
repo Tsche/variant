@@ -1,0 +1,97 @@
+#pragma once
+#include <utility>
+#include <slo/impl/wrapper.h>
+#include <slo/util/compat.h>
+
+@%max 3
+@{
+def type_list(maximum, with_typename=False):
+  return ', '.join(f"{'typename ' if with_typename else ''}T{idx}" for idx in range(maximum))
+
+def member_list(maximum):
+  return '\n'.join(f"T{idx} alternative_{idx};" for idx in range(maximum))
+}@
+
+
+namespace slo::impl {
+template <typename... Ts>
+union RecursiveUnion;
+
+template <typename T>
+union RecursiveUnion<T> {
+  T value;
+  constexpr ~RecursiveUnion() {}
+
+  template <typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args) 
+    : value{std::forward<Args>(args)...} {}
+
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(has_index<T>)
+  {
+    return value.tag;
+  }
+
+  template <std::size_t N, typename Self>
+  constexpr decltype(auto) get(this Self&& self) {
+    static_assert(N == 0);
+    if constexpr (has_unwrap<T>) {
+      return std::forward<Self>(self).value.unwrap();
+    } else {
+      return compat::forward_like<Self>(std::forward<Self>(self).value);
+    }
+  }
+};
+
+@[for N in range(__max__)]
+template <@type_list(2**N, True), typename... Ts> 
+requires (sizeof...(Ts) != 0)
+union RecursiveUnion<@type_list(2**N), Ts...>{
+  @member_list(2**N)
+  RecursiveUnion<Ts...> tail;
+
+  constexpr ~RecursiveUnion() {}
+
+@[for Idx in range(2**N)]
+  template <typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<@Idx>, Args&&... args) 
+    : alternative_@Idx {std::forward<Args>(args)...} {}
+@[end for]
+
+  template <std::size_t N, typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
+      : tail{std::in_place_index_t<N - @(2**N)>{}, std::forward<Args>(args)...} {}
+
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(@(' && '.join(f"has_index<T{idx}>" for idx in range(2**N))))
+  {
+    @[for Idx in range(2**N)]@
+    if (compat::is_within_lifetime(&alternative_@Idx .tag)) {
+      return alternative_@Idx .tag;
+    } else
+    @[end for]@
+    {
+      return tail.index();
+    }
+  }
+
+  template <std::size_t N, typename Self>
+  constexpr decltype(auto) get(this Self&& self) {
+    @[for Idx in range(2**N)]@
+    if constexpr (N == @Idx) {
+      if constexpr (has_unwrap<T@Idx>) {
+        return std::forward<Self>(self).alternative_@Idx .unwrap();
+      } else {
+        return compat::forward_like<Self>(std::forward<Self>(self).alternative_@Idx);
+      }
+    } else
+    @[end for]@
+    {
+      return std::forward<Self>(self).tail.template get<N - @(2**N)>();
+    }
+  }
+
+};
+@[end for]
+
+}  // namespace slo::impl

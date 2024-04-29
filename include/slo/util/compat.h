@@ -33,12 +33,15 @@ template <class T>
 constexpr bool is_within_lifetime(const T* ptr) noexcept {
   // this is only constexpr because clang does not like it being consteval
 #  if __has_builtin(__builtin_constant_p)
+#    define HAS_IS_WITHIN_LIFETIME true
   return __builtin_constant_p(*ptr);
 #  else
+#    define HAS_IS_WITHIN_LIFETIME false
   return 0;
 #  endif
 }
 #else
+#  define HAS_IS_WITHIN_LIFETIME true
 using std::is_within_lifetime;
 #endif
 }  // namespace slo::compat
