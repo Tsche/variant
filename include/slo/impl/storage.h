@@ -18,6 +18,7 @@ template <typename F, typename Variant>
 constexpr decltype(auto) visit(F&& visitor, Variant&& variant);
 
 namespace impl {
+struct error_type {};
 
 template <typename T, typename... Ts>
 consteval std::size_t get_type_index() {
@@ -56,13 +57,20 @@ private:
 
   using union_type = decltype(generate_union<Ts...>());
   union {
-    nullopt dummy;
+    error_type dummy;
     union_type value;
   };
 
   index_type tag{npos};
 
 public:
+  template <std::size_t Idx, typename... Args>
+  constexpr explicit Storage(std::in_place_index_t<Idx> idx, Args&&... args) 
+    : value(idx, std::forward<Args>(args)...)
+    , tag(Idx) {}
+  constexpr Storage() : dummy(), tag(npos){}
+  constexpr ~Storage(){}
+
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
 
   constexpr void reset() {
@@ -95,8 +103,10 @@ public:
 
 private:
   union Union {
-    struct error_type {};
-    using dummy_type = Wrapper<npos, error_type>;
+    template <typename... Args>
+    constexpr explicit Union(Args&&... args) : container(std::forward<Args>(args)...) {}
+    constexpr Union() : dummy() {}
+    constexpr ~Union() {}
 
     template <std::size_t... Is>
     static constexpr auto generate_union(std::index_sequence<Is...>)
@@ -109,7 +119,7 @@ private:
 
     using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-    dummy_type dummy;
+    Wrapper<npos, error_type> dummy;
     struct Container {
       union_type value;
       template <typename... Args>
@@ -119,6 +129,11 @@ private:
   } storage;
 
 public:
+  template <typename... Args>
+  constexpr explicit Storage(Args&&... args) : storage(std::forward<Args>(args)...) {}
+  constexpr Storage() : storage() {}
+  constexpr ~Storage(){}
+
   [[nodiscard]] constexpr std::size_t index() const {
     if consteval {
       if (!compat::is_within_lifetime(&storage.dummy.tag)) {
@@ -129,7 +144,7 @@ public:
   }
 
   constexpr void reset() {
-    visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, storage);
+    visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
     std::construct_at(&storage.dummy);
   }
 

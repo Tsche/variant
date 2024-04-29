@@ -10,20 +10,22 @@
 #include "util/pack.h"
 
 namespace slo {
-template <typename... Ts>
+namespace impl {
+template <typename, typename...>
 class Variant;
+}
 
 template <std::size_t, typename>
 struct variant_alternative;
 
-template <std::size_t Idx, typename... Ts>
-struct variant_alternative<Idx, Variant<Ts...>> {
-  using type = util::pack::get<Idx, Variant<Ts...>>;
+template <std::size_t Idx, typename T, typename... Ts>
+struct variant_alternative<Idx, impl::Variant<T, Ts...>> {
+  using type = util::pack::get<Idx, impl::Variant<Ts...>>;
 };
 
-template <std::size_t Idx, typename... Ts>
-struct variant_alternative<Idx, Variant<Ts...> const> {
-  using type = util::pack::get<Idx, Variant<Ts...>> const;
+template <std::size_t Idx, typename T, typename... Ts>
+struct variant_alternative<Idx, impl::Variant<T, Ts...> const> {
+  using type = util::pack::get<Idx, impl::Variant<Ts...>> const;
 };
 
 template <std::size_t Idx, typename V>
@@ -64,43 +66,57 @@ constexpr decltype(auto) visit(Variant&& variant, F visitor, std::index_sequence
 }
 }  // namespace impl
 
-template <typename F, typename Variant>
-constexpr decltype(auto) visit(F&& visitor, Variant&& variant) {
+template <typename F, typename V>
+constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 #if defined(_MSC_VER)
 // TODO macro solution
 #else
-  return impl::visit(std::forward<Variant>(variant), std::forward<F>(visitor), util::to_index_sequence<Variant>{});
+  return impl::visit(std::forward<V>(variant), std::forward<F>(visitor),
+                     std::make_index_sequence<std::remove_reference_t<V>::size>{});
 #endif
 }
-
-template <typename... Ts>
+namespace impl {
+template <typename storage_type, typename... Ts>
 class Variant {
-  using storage_type = impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>;
-
 public:
   storage_type storage;
   static constexpr auto npos = storage_type::npos;
+  static constexpr auto size = sizeof...(Ts);
 
   template <typename T>
   explicit Variant(T&& obj)
     requires(std::same_as<std::remove_reference_t<T>, Ts> || ...)
-      : storage{std::in_place_index<impl::type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)} {}
+      : storage(std::in_place_index<impl::type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)) {}
 
   template <std::size_t Idx, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage{idx, std::forward<Args>(args)...} {}
+  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage(idx, std::forward<Args>(args)...) {}
 
   template <typename T, typename... Args>
   explicit Variant(std::in_place_type_t<T>, Args&&... args)
-      : storage{std::in_place_index<impl::type_index<T, Ts...>>, std::forward<Args>(args)...} {}
+      : storage(std::in_place_index<impl::type_index<T, Ts...>>, std::forward<Args>(args)...) {}
 
   constexpr Variant()
     requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
       : Variant(std::in_place_index<0>) {}
 
-  constexpr Variant(Variant const&)  = default;
-  constexpr Variant(Variant&&)       = default;
-  Variant& operator=(Variant const&) = default;
-  Variant& operator=(Variant&&)      = default;
+  constexpr Variant(Variant const& other) {
+    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+  }
+  constexpr Variant(Variant&& other) {
+    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+  }
+  Variant& operator=(Variant const& other) {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+    }
+    return *this;
+  }
+  Variant& operator=(Variant&& other) {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+    }
+    return *this;
+  }
 
   constexpr ~Variant() { storage.reset(); }
 
@@ -130,6 +146,18 @@ public:
   }
 
   [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == npos; }
+  [[nodiscard]] constexpr std::size_t index() const noexcept { return storage.index(); }
 };
+}  // namespace impl
+// using storage_type = impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>;
+
+template <typename... Ts>
+using Variant = impl::Variant<impl::Storage<false, Ts...>, Ts...>;
+
+template <typename... Ts>
+using Union = impl::Variant<impl::Storage<true, Ts...>, Ts...>;
+
+template <typename... Ts>
+using variant = impl::Variant<impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>, Ts...>;
 
 }  // namespace slo

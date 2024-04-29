@@ -3,7 +3,6 @@
 #include <utility>
 #include <variant>
 
-#include <slo/union.h>
 #include <slo/variant.h>
 
 #include "lifetime.h"

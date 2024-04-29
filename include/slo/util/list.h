@@ -60,6 +60,12 @@ struct ToIndexSequence<T<Ts...>>{
   using type = std::index_sequence_for<Ts...>;
 };
 
+template <template<bool, typename...> class T, typename... Ts>
+struct ToIndexSequence<T<false, Ts...>>{ 
+  // TODO
+  using type = std::index_sequence_for<Ts...>;
+};
+
 }
 template <typename T>
 using to_index_sequence = typename detail::ToIndexSequence<std::remove_cvref_t<T>>::type;
