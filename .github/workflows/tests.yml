@@ -23,12 +23,12 @@ jobs:
 
     - uses: actions/checkout@v3
     - name: Build
-      run: conan build . -s build_type=Debug --build=missing -o sanitizers=True
+      run: conan build . --build=missing -o sanitizers=True -s build_type=Debug -s compiler.cppstd=23 -s compiler.version=13.2
 
     - name: Test Package
       run: |
         conan editable add .
-        conan test test_package slo/0.1 -s build_type=Debug
+        conan test test_package slo/0.1 -s build_type=Debug -s compiler.cppstd=23 -s compiler.version=13.2
 
     - name: Test
       run: ./build/Debug/slo_test
