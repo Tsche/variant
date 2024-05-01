@@ -20,10 +20,10 @@ template <template <typename...> class T, std::size_t Count>
 using test_type = typename decltype(get_test_type<T>(std::make_index_sequence<Count>()))::type;
 
 using test_types = testing::Types<test_type<std::variant, 5>,  // control
-                                  test_type<slo::Union, 5>,    // small union   -> recursive
-                                  test_type<slo::Union, 50>,   // big union     -> tree
-                                  test_type<slo::Variant, 5>,  // small variant -> recursive
-                                  test_type<slo::Variant, 50>  // big variant   -> tree
+                                  test_type<slo::InvertedVariant, 5>,    // small union   -> recursive
+                                  test_type<slo::InvertedVariant, 50>,   // big union     -> tree
+                                  test_type<slo::RegularVariant, 5>,  // small variant -> recursive
+                                  test_type<slo::RegularVariant, 50>  // big variant   -> tree
                                   >;
 TYPED_TEST_SUITE(LifetimeTest, test_types);
 

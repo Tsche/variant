@@ -36,11 +36,8 @@ concept has_get = requires(T obj) { obj.template get<0>(); };
 template <typename... Ts>
 using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
 
-template <bool, typename...>
-class Storage;
-
 template <typename... Ts>
-class Storage<false, Ts...> {
+class Storage {
   // discriminated union
 public:
   using index_type                  = index_type<Ts...>;
@@ -94,7 +91,7 @@ public:
 };
 
 template <typename... Ts>
-class Storage<true, Ts...> {
+class InvertedStorage {
   // inverted variant
 public:
   using index_type                  = index_type<Ts...>;
@@ -130,9 +127,9 @@ private:
 
 public:
   template <typename... Args>
-  constexpr explicit Storage(Args&&... args) : storage(std::forward<Args>(args)...) {}
-  constexpr Storage() : storage() {}
-  constexpr ~Storage(){}
+  constexpr explicit InvertedStorage(Args&&... args) : storage(std::forward<Args>(args)...) {}
+  constexpr InvertedStorage() : storage() {}
+  constexpr ~InvertedStorage(){}
 
   [[nodiscard]] constexpr std::size_t index() const {
     if consteval {
@@ -159,5 +156,43 @@ public:
     return std::forward<Self>(self).storage.container.value.template get<Idx>();
   }
 };
+
+template<bool, template<typename...> class T, template<typename...> class F>
+struct StorageChoice;
+
+template <template<typename...> class T, template<typename...> class F>
+struct StorageChoice<true, T, F>{
+    template <typename... Ts>
+    using type = T<Ts...>;
+};
+
+template <template<typename...> class T, template<typename...> class F>
+struct StorageChoice<false, T, F>{
+    template <typename... Ts>
+    using type = F<Ts...>;
+};
 }  // namespace impl
+
+template <typename T>
+struct variant_size;
+
+template <typename... Ts>
+struct variant_size<impl::Storage<Ts...>> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
+
+template <typename... Ts>
+struct variant_size<impl::Storage<Ts...> const> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
+
+template <typename... Ts>
+struct variant_size<impl::InvertedStorage<Ts...>> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
+
+template <typename... Ts>
+struct variant_size<impl::InvertedStorage<Ts...> const> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
 }  // namespace slo

@@ -10,26 +10,18 @@
 #include "util/pack.h"
 
 namespace slo {
-namespace impl {
-template <typename, typename...>
-class Variant;
-}
 
 template <std::size_t, typename>
 struct variant_alternative;
 
-template <std::size_t Idx, typename T, typename... Ts>
-struct variant_alternative<Idx, impl::Variant<T, Ts...>> {
-  using type = util::pack::get<Idx, impl::Variant<Ts...>>;
-};
-
-template <std::size_t Idx, typename T, typename... Ts>
-struct variant_alternative<Idx, impl::Variant<T, Ts...> const> {
-  using type = util::pack::get<Idx, impl::Variant<Ts...>> const;
-};
+template <typename T>
+struct variant_size;
 
 template <std::size_t Idx, typename V>
 using variant_alternative_t = typename variant_alternative<Idx, std::remove_reference_t<V>>::type;
+
+template <typename T>
+inline constexpr std::size_t variant_size_v = slo::variant_size<T>::value;
 
 template <std::size_t Idx, impl::has_get V>
 constexpr decltype(auto) get(V&& variant_) {
@@ -45,6 +37,7 @@ namespace impl {
 template <typename Variant, typename F, std::size_t... Is>
 constexpr decltype(auto) visit(Variant&& variant, F visitor, std::index_sequence<Is...>) {
   using return_type = std::common_type_t<decltype(visitor(slo::get<Is>(std::forward<Variant>(variant))))...>;
+  // using return_type = std::common_type_t<std::invoke_result_t<F, std::invoke_result_t<decltype(slo::get<Is, U>), U>>...>;
   if constexpr (std::same_as<return_type, void>) {
     (void)((variant.index() == Is ? visitor(slo::get<Is>(std::forward<Variant>(variant))), true : false) || ...);
   } else {
@@ -72,12 +65,13 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 // TODO macro solution
 #else
   return impl::visit(std::forward<V>(variant), std::forward<F>(visitor),
-                     std::make_index_sequence<std::remove_reference_t<V>::size>{});
+                     std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
 #endif
 }
 namespace impl {
-template <typename storage_type, typename... Ts>
+template <template <typename...> class Storage, typename... Ts>
 class Variant {
+  using storage_type = Storage<Ts...>;
 public:
   storage_type storage;
   static constexpr auto npos = storage_type::npos;
@@ -149,15 +143,37 @@ public:
   [[nodiscard]] constexpr std::size_t index() const noexcept { return storage.index(); }
 };
 }  // namespace impl
-// using storage_type = impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>;
+
+template <std::size_t Idx, template <typename...> class T, typename... Ts>
+struct variant_alternative<Idx, impl::Variant<T, Ts...>> {
+  using type = util::pack::get<Idx, util::TypeList<Ts...>>;
+};
+
+template <std::size_t Idx, template <typename...> class T, typename... Ts>
+struct variant_alternative<Idx, impl::Variant<T, Ts...> const> {
+  using type = util::pack::get<Idx, util::TypeList<Ts...>> const;
+};
+
+template <template <typename...> class T, typename... Ts>
+struct variant_size<impl::Variant<T, Ts...>> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
+
+template <template <typename...> class T, typename... Ts>
+struct variant_size<impl::Variant<T, Ts...> const> {
+  static constexpr std::size_t value = sizeof...(Ts);
+};
 
 template <typename... Ts>
-using Variant = impl::Variant<impl::Storage<false, Ts...>, Ts...>;
+using RegularVariant = impl::Variant<impl::Storage, Ts...>;
 
 template <typename... Ts>
-using Union = impl::Variant<impl::Storage<true, Ts...>, Ts...>;
+using InvertedVariant = impl::Variant<impl::InvertedStorage, Ts...>;
 
 template <typename... Ts>
-using variant = impl::Variant<impl::Storage<HAS_IS_WITHIN_LIFETIME, Ts...>, Ts...>;
+using Variant = impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type, Ts...>;
+
+template <typename... Ts>
+using variant = Variant<Ts...>;
 
 }  // namespace slo
