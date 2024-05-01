@@ -12,7 +12,7 @@
 #include "union/tree.h"
 
 namespace slo {
-struct nullopt{};
+struct nullopt {};
 
 template <typename F, typename Variant>
 constexpr decltype(auto) visit(F&& visitor, Variant&& variant);
@@ -62,11 +62,11 @@ private:
 
 public:
   template <std::size_t Idx, typename... Args>
-  constexpr explicit Storage(std::in_place_index_t<Idx> idx, Args&&... args) 
-    : value(idx, std::forward<Args>(args)...)
-    , tag(Idx) {}
-  constexpr Storage() : dummy(), tag(npos){}
-  constexpr ~Storage(){}
+  constexpr explicit Storage(std::in_place_index_t<Idx> idx, Args&&... args)
+      : value(idx, std::forward<Args>(args)...)
+      , tag(Idx) {}
+  constexpr Storage() : dummy(), tag(npos) {}
+  constexpr ~Storage() {}
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
 
@@ -91,85 +91,73 @@ public:
 };
 
 template <typename... Ts>
-class InvertedStorage {
+union InvertedStorage {
   // inverted variant
-public:
   using index_type                  = index_type<Ts...>;
   constexpr static index_type npos  = static_cast<index_type>(~0U);
   constexpr static std::size_t size = sizeof...(Ts);
 
-private:
-  union Union {
-    template <typename... Args>
-    constexpr explicit Union(Args&&... args) : container(std::forward<Args>(args)...) {}
-    constexpr Union() : dummy() {}
-    constexpr ~Union() {}
+  template <std::size_t... Is>
+  static constexpr auto generate_union(std::index_sequence<Is...>)
+      -> RecursiveUnion<Wrapper<static_cast<index_type>(Is), Ts>...>;
 
-    template <std::size_t... Is>
-    static constexpr auto generate_union(std::index_sequence<Is...>)
-        -> RecursiveUnion<Wrapper<static_cast<index_type>(Is), Ts>...>;
+  template <std::size_t... Is>
+    requires(sizeof...(Ts) >= 42)
+  static constexpr auto generate_union(std::index_sequence<Is...>)
+      -> util::to_cbt<TreeUnion, Wrapper<static_cast<index_type>(Is), Ts>...>;
 
-    template <std::size_t... Is>
-      requires(sizeof...(Ts) >= 42)
-    static constexpr auto generate_union(std::index_sequence<Is...>)
-        -> util::to_cbt<TreeUnion, Wrapper<static_cast<index_type>(Is), Ts>...>;
+  using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-    using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
-
-    Wrapper<npos, error_type> dummy;
-    struct Container {
-      union_type value;
-      template <typename... Args>
-      constexpr explicit Container(Args&&... args) : value(std::forward<Args>(args)...) {}
-      constexpr ~Container() = default;
-    } container;
+  Wrapper<npos, error_type> dummy;
+  struct Container {
+    union_type value;
   } storage;
 
 public:
   template <typename... Args>
-  constexpr explicit InvertedStorage(Args&&... args) : storage(std::forward<Args>(args)...) {}
-  constexpr InvertedStorage() : storage() {}
-  constexpr ~InvertedStorage(){}
+  constexpr explicit InvertedStorage(Args&&... args) : storage{union_type(std::forward<Args>(args)...)} {}
+  constexpr InvertedStorage() : dummy() {}
+  constexpr ~InvertedStorage() {}
 
   [[nodiscard]] constexpr std::size_t index() const {
     if consteval {
-      if (!compat::is_within_lifetime(&storage.dummy.tag)) {
-        return storage.container.value.index();
+      if (!compat::is_within_lifetime(&dummy.tag)) {
+        return storage.value.index();
       }
     }
-    return storage.dummy.index();
+    return dummy.index();
   }
 
   constexpr void reset() {
     visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
-    std::construct_at(&storage.dummy);
+    std::construct_at(&dummy);
   }
 
   template <std::size_t Idx, typename... Args>
   constexpr void emplace(Args&&... args) {
     reset();
-    std::construct_at(&storage.container, std::in_place_index<Idx>, std::forward<Args>(args)...);
+    std::construct_at(&storage, std::in_place_index<Idx>, std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return std::forward<Self>(self).storage.container.value.template get<Idx>();
+    return std::forward<Self>(self).storage.value.template get<Idx>();
   }
 };
 
-template<bool, template<typename...> class T, template<typename...> class F>
+template <bool, template <typename...> class T, template <typename...> class F>
 struct StorageChoice;
 
-template <template<typename...> class T, template<typename...> class F>
-struct StorageChoice<true, T, F>{
-    template <typename... Ts>
-    using type = T<Ts...>;
+template <template <typename...> class T, template <typename...> class F>
+struct StorageChoice<true, T, F> {
+  template <typename... Ts>
+  using type = T<Ts...>;
 };
 
-template <template<typename...> class T, template<typename...> class F>
-struct StorageChoice<false, T, F>{
-    template <typename... Ts>
-    using type = F<Ts...>;
+template <template <typename...> class T, template <typename...> class F>
+struct StorageChoice<false, T, F> {
+  template <typename... Ts>
+  using type = F<Ts...>;
 };
 }  // namespace impl
 
