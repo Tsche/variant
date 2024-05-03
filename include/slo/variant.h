@@ -4,7 +4,11 @@
 #include <type_traits>
 #include <utility>
 
+#include "impl/concepts.h"
+
 #include "impl/storage.h"
+#include "impl/visit.h"
+
 #include "util/compat.h"
 #include "util/list.h"
 #include "util/pack.h"
@@ -33,32 +37,6 @@ constexpr decltype(auto) get(V&& variant_) {
   return std::forward<V>(variant_).template get<T>();
 }
 
-namespace impl {
-template <typename Variant, typename F, std::size_t... Is>
-constexpr decltype(auto) visit(Variant&& variant, F visitor, std::index_sequence<Is...>) {
-  using return_type = std::common_type_t<decltype(visitor(slo::get<Is>(std::forward<Variant>(variant))))...>;
-  // using return_type = std::common_type_t<std::invoke_result_t<F, std::invoke_result_t<decltype(slo::get<Is, U>), U>>...>;
-  if constexpr (std::same_as<return_type, void>) {
-    (void)((variant.index() == Is ? visitor(slo::get<Is>(std::forward<Variant>(variant))), true : false) || ...);
-  } else {
-    union {
-      char dummy;
-      return_type value;
-    } ret{};
-
-    bool const success =
-        ((variant.index() == Is ? std::construct_at(&ret.value, visitor(slo::get<Is>(std::forward<Variant>(variant)))),
-          true                  : false) ||
-         ...);
-
-    if (success) {
-      return ret.value;
-    }
-    std::unreachable();
-  }
-}
-}  // namespace impl
-
 template <typename F, typename V>
 constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 #if defined(_MSC_VER)
@@ -68,6 +46,7 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
                      std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
 #endif
 }
+
 namespace impl {
 template <template <typename...> class Storage, typename... Ts>
 class Variant {
@@ -80,14 +59,14 @@ public:
   template <typename T>
   explicit Variant(T&& obj)
     requires(std::same_as<std::remove_reference_t<T>, Ts> || ...)
-      : storage(std::in_place_index<impl::type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)) {}
+      : storage(std::in_place_index<type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)) {}
 
   template <std::size_t Idx, typename... Args>
   explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage(idx, std::forward<Args>(args)...) {}
 
   template <typename T, typename... Args>
   explicit Variant(std::in_place_type_t<T>, Args&&... args)
-      : storage(std::in_place_index<impl::type_index<T, Ts...>>, std::forward<Args>(args)...) {}
+      : storage(std::in_place_index<type_index<T, Ts...>>, std::forward<Args>(args)...) {}
 
   constexpr Variant()
     requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
@@ -116,7 +95,7 @@ public:
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
-    storage.template emplace<impl::type_index<T, Ts...>>(std::forward<Args>(args)...);
+    storage.template emplace<type_index<T, Ts...>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename... Args>
@@ -131,7 +110,7 @@ public:
 
   template <typename T, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return slo::get<impl::type_index<T, Ts...>>(std::forward<Self>(self).storage);
+    return slo::get<type_index<T, Ts...>>(std::forward<Self>(self).storage);
   }
 
   template <typename Self, typename V>

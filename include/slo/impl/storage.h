@@ -30,9 +30,6 @@ consteval std::size_t get_type_index() {
 template <typename T, typename... Ts>
 constexpr inline std::size_t type_index = get_type_index<std::remove_cvref_t<T>, Ts...>();
 
-template <typename T>
-concept has_get = requires(T obj) { obj.template get<0>(); };
-
 template <typename... Ts>
 using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
 
@@ -40,9 +37,8 @@ template <typename... Ts>
 class Storage {
   // discriminated union
 public:
-  using index_type                  = index_type<Ts...>;
-  constexpr static index_type npos  = static_cast<index_type>(~0U);
-  constexpr static std::size_t size = sizeof...(Ts);
+  using index_type                 = index_type<Ts...>;
+  constexpr static index_type npos = static_cast<index_type>(~0U);
 
 private:
   template <typename... Us>
@@ -72,7 +68,7 @@ public:
 
   constexpr void reset() {
     if (tag != npos) {
-      visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
+      slo::visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
       tag = npos;
     }
   }
@@ -93,9 +89,8 @@ public:
 template <typename... Ts>
 union InvertedStorage {
   // inverted variant
-  using index_type                  = index_type<Ts...>;
-  constexpr static index_type npos  = static_cast<index_type>(~0U);
-  constexpr static std::size_t size = sizeof...(Ts);
+  using index_type                 = index_type<Ts...>;
+  constexpr static index_type npos = static_cast<index_type>(~0U);
 
   template <std::size_t... Is>
   static constexpr auto generate_union(std::index_sequence<Is...>)
@@ -129,14 +124,14 @@ public:
   }
 
   constexpr void reset() {
-    visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
+    slo::visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
     std::construct_at(&dummy);
   }
 
   template <std::size_t Idx, typename... Args>
   constexpr void emplace(Args&&... args) {
     reset();
-    std::construct_at(&storage, std::in_place_index<Idx>, std::forward<Args>(args)...);
+    std::construct_at(&storage.value, std::in_place_index<Idx>, std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

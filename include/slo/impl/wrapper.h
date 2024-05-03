@@ -1,22 +1,9 @@
 #pragma once
-#include <concepts>
 #include <cstddef>
 #include <utility>
+// #include "concepts.h"
 
 namespace slo::impl {
-template <typename T>
-concept has_index = requires(T const& obj) {
-  { obj.index() } -> std::convertible_to<std::size_t>;
-};
-
-template <typename T>
-concept has_unwrap = requires(T obj) {
-  { obj.unwrap() } -> std::same_as<typename T::type&>;
-  { std::as_const(obj).unwrap() } -> std::same_as<typename T::type const&>;
-  { std::move(obj).unwrap() } -> std::same_as<typename T::type&&>;
-  { std::move(std::as_const(obj)).unwrap() } -> std::same_as<typename T::type const&&>;
-};
-
 template <auto Idx, typename ValueType>
 struct Wrapper {
   using type = ValueType;
@@ -36,6 +23,6 @@ struct Wrapper {
   ValueType storage;
 };
 
-static_assert(has_unwrap<Wrapper<0, int>>);
+// static_assert(has_unwrap<Wrapper<0, int>>);
 
 }  // namespace slo::impl
