@@ -7,28 +7,36 @@ from typing import Any, Optional
 from subprocess import check_call
 from collections import defaultdict
 
+import itertools
+
 import jmespath
 
 from palgen import Extension, Sources, Model
 from palgen.ingest import Name, Toml
 
+class Config(Model):
+    source: Path
+    profile: dict[str, Any]
+    query: dict[str, Any]
+    standard: Optional[str] = None
+    options: list[str] = []
+    true_value: str = "1"
+    false_value: str = "0"
 
-def fix_value(value):
-    if isinstance(value, bool):
-        return "ON" if value else "OFF"
-    return value
 
 
-def generate_trace(file, output, defines: dict[str, Any]):
-    defines = [
-        f'-D{name}={fix_value(value)}' for name, value in defines.items()]
+def dict_product(dicts):
+    return (dict(zip(dicts, x)) for x in itertools.product(*dicts.values()))
+
+def generate_trace(file, output, defines: dict[str, Any], config: Config):
+    defines = [f'-D{name}={value}' for name, value in defines.items()]
     includes = ['-isystem', str(Path.cwd() / 'include')]
-    standard = ['-std=c++23']
+    standard = f"-std={config.standard}" if config.standard else '-std=c++23'
     profile_flags = ['-ftime-trace', '-c']
 
-    taskset_prefix = ["taskset", "--cpu-list", "23"]
+    taskset_prefix = ["taskset", "--cpu-list", "0"]
     call = [*taskset_prefix, os.environ.get("CXX") or "clang++", str(file), '-o', str(output), *
-            defines, *includes, *standard, *profile_flags]
+            defines, *includes, standard, *profile_flags, *config.options]
 
     output.parent.mkdir(exist_ok=True, parents=True)
     check_call(call, cwd=file.parent)
@@ -52,13 +60,6 @@ def analyze_trace(file: Path, queries):
         trace_times[query_name].append(search_result[0])
     return trace_times
 
-
-class Config(Model):
-    source: Path
-    profile: dict[str, Any]
-    query: dict[str, Any]
-
-
 class Analyze:
     def __init__(self, config: Config, repeat_each: int, file: Path, output: Path):
         self.config = config
@@ -66,11 +67,39 @@ class Analyze:
         self.repeat_each = repeat_each
         self.queries = {name: jmespath.compile(
             query) for name, query in config.query.items()}
-
+        self.config.profile = dict(self.expand_profiles(self.config.profile.copy()))
+        self.fix_bools()
         self.runs: dict[str, list[Path]] = {
-            name: [generate_trace(file, self.output / file.parent.stem / f'{name}.{idx}.obj', features)
+            name: [generate_trace(file, self.output / file.parent.stem / f'{name}.{idx}.obj', features, config)
                    for idx in range(self.repeat_each)]
             for name, features in self.config.profile.items()}
+
+    def fix_bools(self):
+        for name, features in self.config.profile.items():
+            for feature, value in features.copy().items():
+                if isinstance(value, bool):
+                    features[feature] = self.config.true_value if value else self.config.false_value
+
+    def get_ranges(self, features: dict):
+        for feature, value in features.items():
+            if isinstance(value, dict):
+                assert "min" in value and "max" in value, "Invalid range: Missing min or max"
+                yield feature, range(int(value["min"]), int(value["max"]) + 1)
+            elif isinstance(value, list):
+                yield feature, value
+
+    def expand_profiles(self, profile_input: dict[str, Any]):
+        for name, features in profile_input.items():
+            ranges = dict(self.get_ranges(features))
+            if not ranges:
+                yield name, features
+
+            for feature_set in dict_product(ranges):
+                new_name = f"{name}_{'_'.join(f'{feature}{value}' for feature, value in feature_set.items())}"
+                values = features.copy()
+                for feature, value in feature_set.items():
+                    values[feature] = value
+                yield new_name, values
 
     def _search(self, trace_file: Path):
         trace = json.loads(trace_file.read_text('utf-8'))
@@ -104,7 +133,6 @@ class Benchmark(Extension):
     class Settings(Model):
         output: Path
         repeat_each: int = 1
-        standard: Optional[str] = None
         system_includes: list[str] = []
         includes: list[str] = []
 
@@ -117,8 +145,7 @@ class Benchmark(Extension):
         for path, config in data:
             if not (file := Path(config.source)).is_absolute():
                 file = path.parent / file
-            analyzer = Analyze(
-                config, self.settings.repeat_each, file, self.settings.output)
+            analyzer = Analyze(config, self.settings.repeat_each, file, self.settings.output)
             queries = analyzer.run_queries()
             colors = [f"#{hex(zlib.crc32(name.encode('utf-8')))[4:]}"
                       for name in config.profile]
