@@ -124,8 +124,10 @@ public:
   }
 
   constexpr void reset() {
-    slo::visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
-    std::construct_at(&dummy);
+    if (index() != npos){
+      slo::visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
+      std::construct_at(&dummy);
+    }
   }
 
   template <std::size_t Idx, typename... Args>

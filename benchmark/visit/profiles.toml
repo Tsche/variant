@@ -8,3 +8,9 @@ total = "traceEvents[?name=='ExecuteCompiler'].dur"
 [profile.simple]
 TEST_SIZE.min = 0
 TEST_SIZE.max = 255
+TIERED = false
+
+[profile.tiered]
+TEST_SIZE.min = 0
+TEST_SIZE.max = 255
+TIERED = true

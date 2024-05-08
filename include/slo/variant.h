@@ -5,9 +5,13 @@
 #include <utility>
 
 #include "impl/concepts.h"
-
 #include "impl/storage.h"
-#include "impl/visit.h"
+
+#if defined(_MSC_VER)
+#include "impl/visit/variadic.h"
+#else
+#include "impl/visit/macro.h"
+#endif
 
 #include "util/compat.h"
 #include "util/list.h"
@@ -39,10 +43,10 @@ constexpr decltype(auto) get(V&& variant_) {
 
 template <typename F, typename V>
 constexpr decltype(auto) visit(F&& visitor, V&& variant) {
-#if defined(_MSC_VER)
-// TODO macro solution
+#if !defined(_MSC_VER)
+  return impl::macro::visit(std::forward<F>(visitor), std::forward<V>(variant));
 #else
-  return impl::visit(std::forward<V>(variant), std::forward<F>(visitor),
+  return impl::variadic::visit(std::forward<F>(visitor), std::forward<V>(variant),
                      std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
 #endif
 }
