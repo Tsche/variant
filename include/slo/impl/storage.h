@@ -31,13 +31,48 @@ template <typename T, typename... Ts>
 constexpr inline std::size_t type_index = get_type_index<std::remove_cvref_t<T>, Ts...>();
 
 template <typename... Ts>
-using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
+using get_index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
+
+template <typename Source, typename Dest>
+concept allowed_conversion = requires { std::type_identity_t<Dest[]>{std::declval<Source>()}; };
+
+template <std::size_t Idx, typename T>
+struct Build_FUN {
+  template <allowed_conversion<T> U>
+  auto operator()(T, U&&) -> std::integral_constant<std::size_t, Idx>;
+};
+
+template <typename V, typename = std::make_index_sequence<std::variant_size_v<V>>>
+struct Build_FUNs;
+
+template <template <typename...> class V, typename... Ts, std::size_t... Idx>
+struct Build_FUNs<V<Ts...>, std::index_sequence<Idx...>> : Build_FUN<Idx, Ts>... {
+  using Build_FUN<Idx, Ts>::operator()...;
+};
+
+template <typename T, typename V>
+inline constexpr auto selected_index = std::variant_npos;
+
+template <typename T, typename V>
+  requires std::invocable<Build_FUNs<V>, T, T>
+inline constexpr auto selected_index<T, V> = std::invoke_result_t<Build_FUNs<V>, T, T>::value;
+
+template <typename>
+struct in_place_tag : std::false_type {};
+
+template <typename T>
+struct in_place_tag<std::in_place_type_t<T>> : std::true_type {};
+template <std::size_t V>
+struct in_place_tag<std::in_place_index_t<V>> : std::true_type {};
+
+template <typename T>
+concept is_in_place = in_place_tag<T>::value;
 
 template <typename... Ts>
 class Storage {
   // discriminated union
 public:
-  using index_type                 = index_type<Ts...>;
+  using index_type                 = get_index_type<Ts...>;
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
 private:
@@ -50,7 +85,7 @@ private:
 
   using union_type = decltype(generate_union<Ts...>());
   union {
-    error_type dummy;
+    error_type dummy = {};
     union_type value;
   };
 
@@ -61,8 +96,28 @@ public:
   constexpr explicit Storage(std::in_place_index_t<Idx> idx, Args&&... args)
       : value(idx, std::forward<Args>(args)...)
       , tag(Idx) {}
-  constexpr Storage() : dummy(), tag(npos) {}
-  constexpr ~Storage() {}
+  constexpr Storage() = default;
+  
+  constexpr Storage(Storage const& other) {
+    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+  }
+  constexpr Storage(Storage&& other) noexcept {
+    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+  }
+  Storage& operator=(Storage const& other) {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+    }
+    return *this;
+  }
+  Storage& operator=(Storage&& other) noexcept {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+    }
+    return *this;
+  }
+
+  constexpr ~Storage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
 
@@ -80,6 +135,11 @@ public:
     tag = Idx;
   }
 
+  template <typename T, typename... Args>
+  constexpr void emplace(Args&&... args) {
+    emplace<type_index<T, Ts...>>(std::forward<Args>(args)...);
+  }
+
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
     return std::forward<Self>(self).value.template get<Idx>();
@@ -89,7 +149,7 @@ public:
 template <typename... Ts>
 union InvertedStorage {
   // inverted variant
-  using index_type                 = index_type<Ts...>;
+  using index_type                 = get_index_type<Ts...>;
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
   template <std::size_t... Is>
@@ -103,16 +163,37 @@ union InvertedStorage {
 
   using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-  Wrapper<npos, error_type> dummy;
+  Wrapper<npos, error_type> dummy {};
   struct Container {
     union_type value;
   } storage;
 
 public:
-  template <typename... Args>
-  constexpr explicit InvertedStorage(Args&&... args) : storage{union_type(std::forward<Args>(args)...)} {}
+  template <std::size_t Idx, typename... Args>
+  constexpr explicit InvertedStorage(std::in_place_index_t<Idx> idx, Args&&... args)
+      : storage{union_type(idx, std::forward<Args>(args)...)} {}
+
   constexpr InvertedStorage() : dummy() {}
-  constexpr ~InvertedStorage() {}
+  constexpr ~InvertedStorage() { reset(); }
+
+  constexpr InvertedStorage(InvertedStorage const& other) {
+    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+  }
+  constexpr InvertedStorage(InvertedStorage&& other) noexcept {
+    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+  }
+  InvertedStorage& operator=(InvertedStorage const& other) {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+    }
+    return *this;
+  }
+  InvertedStorage& operator=(InvertedStorage&& other) noexcept {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+    }
+    return *this;
+  }
 
   [[nodiscard]] constexpr std::size_t index() const {
     if consteval {
@@ -124,7 +205,7 @@ public:
   }
 
   constexpr void reset() {
-    if (index() != npos){
+    if (index() != npos) {
       slo::visit([](auto&& member) { std::destroy_at(std::addressof(member)); }, *this);
       std::construct_at(&dummy);
     }
@@ -134,6 +215,11 @@ public:
   constexpr void emplace(Args&&... args) {
     reset();
     std::construct_at(&storage.value, std::in_place_index<Idx>, std::forward<Args>(args)...);
+  }
+
+  template <typename T, typename... Args>
+  constexpr void emplace(Args&&... args) {
+    emplace<type_index<T, Ts...>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

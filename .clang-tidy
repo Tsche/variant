@@ -17,7 +17,8 @@ Checks: "*,
         -clang-diagnostic-unknown-attributes,
         -readability-named-parameter,
         -*-avoid-c-arrays,
-        -*-magic-numbers
+        -*-magic-numbers,
+        -*-union-access
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

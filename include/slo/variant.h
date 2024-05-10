@@ -8,9 +8,9 @@
 #include "impl/storage.h"
 
 #if defined(_MSC_VER)
-#include "impl/visit/variadic.h"
+#  include "impl/visit/variadic.h"
 #else
-#include "impl/visit/macro.h"
+#  include "impl/visit/macro.h"
 #endif
 
 #include "util/compat.h"
@@ -47,7 +47,7 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
   return impl::macro::visit(std::forward<F>(visitor), std::forward<V>(variant));
 #else
   return impl::variadic::visit(std::forward<F>(visitor), std::forward<V>(variant),
-                     std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
+                               std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
 #endif
 }
 
@@ -55,6 +55,7 @@ namespace impl {
 template <template <typename...> class Storage, typename... Ts>
 class Variant {
   using storage_type = Storage<Ts...>;
+
 public:
   storage_type storage;
   static constexpr auto npos = storage_type::npos;
@@ -76,26 +77,16 @@ public:
     requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
       : Variant(std::in_place_index<0>) {}
 
-  constexpr Variant(Variant const& other) {
-    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-  }
-  constexpr Variant(Variant&& other) {
-    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-  }
-  Variant& operator=(Variant const& other) {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-    }
-    return *this;
-  }
-  Variant& operator=(Variant&& other) {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-    }
-    return *this;
-  }
+  template <typename T>
+    requires(sizeof...(Ts) != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
+             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, storage_type> != npos)
+  constexpr Variant(T&& obj) : storage(std::in_place_index<selected_index<T, storage_type>>, std::forward<T>(obj)) {}
 
-  constexpr ~Variant() { storage.reset(); }
+  constexpr Variant(Variant const& other)      = default;
+  constexpr Variant(Variant&& other) noexcept  = default;
+  Variant& operator=(Variant const& other)     = default;
+  Variant& operator=(Variant&& other) noexcept = default;
+  constexpr ~Variant()                         = default;
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
@@ -154,7 +145,8 @@ template <typename... Ts>
 using InvertedVariant = impl::Variant<impl::InvertedStorage, Ts...>;
 
 template <typename... Ts>
-using Variant = impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type, Ts...>;
+using Variant =
+    impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type, Ts...>;
 
 template <typename... Ts>
 using variant = Variant<Ts...>;

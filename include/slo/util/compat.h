@@ -3,7 +3,7 @@
 #include <type_traits>
 
 namespace slo::compat {
-#if __cpp_lib_forward_like < 202207L
+// #if __cpp_lib_forward_like < 202207L
 template <typename T, typename U>
 [[nodiscard]] constexpr auto&& forward_like(U&& obj) noexcept {
   if constexpr (std::is_const_v<std::remove_reference_t<T>>) {
@@ -20,9 +20,9 @@ template <typename T, typename U>
     }
   }
 }
-#else
-using std::forward_like;
-#endif
+// #else
+// using std::forward_like;
+// #endif
 
 // standard libraries don't expose this one but it is rather handy
 template <typename T, typename U>

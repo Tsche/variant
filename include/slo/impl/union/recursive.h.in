@@ -1,7 +1,7 @@
 #pragma once
 #include <utility>
-#include <slo/impl/wrapper.h>
 #include <slo/util/compat.h>
+#include <slo/impl/concepts.h>
 
 @%max 3
 @{

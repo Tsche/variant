@@ -1,8 +1,8 @@
 #pragma once
 #include <cstddef>
 #include <utility>
-#include <slo/impl/wrapper.h>
 #include <slo/util/compat.h>
+#include <slo/impl/concepts.h>
 
 namespace slo::impl {
 template <typename... Ts>

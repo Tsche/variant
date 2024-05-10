@@ -1,7 +1,7 @@
 #pragma once
 #include <utility>
-#include <slo/impl/wrapper.h>
 #include <slo/util/compat.h>
+#include <slo/impl/concepts.h>
 
 namespace slo::impl {
 template <typename... Ts>
@@ -15,7 +15,11 @@ union RecursiveUnion<T> {
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args) : value{std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T>) { return value.tag; }
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(has_index<T>)
+  {
+    return value.tag;
+  }
 
   template <std::size_t N, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
@@ -29,7 +33,8 @@ union RecursiveUnion<T> {
 };
 
 template <typename T0, typename... Ts>
-requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, Ts...> {
+  requires(sizeof...(Ts) != 0)
+union RecursiveUnion<T0, Ts...> {
   T0 alternative_0;
   RecursiveUnion<Ts...> tail;
 
@@ -43,7 +48,9 @@ requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, Ts...> {
   constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
       : tail{std::in_place_index_t<N - 1>{}, std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T0>) {
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(has_index<T0>)
+  {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else {
@@ -66,7 +73,8 @@ requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, Ts...> {
 };
 
 template <typename T0, typename T1, typename... Ts>
-requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, T1, Ts...> {
+  requires(sizeof...(Ts) != 0)
+union RecursiveUnion<T0, T1, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
   RecursiveUnion<Ts...> tail;
@@ -85,7 +93,9 @@ requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, T1, Ts...> {
   constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
       : tail{std::in_place_index_t<N - 2>{}, std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T0>&& has_index<T1>) {
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(has_index<T0> && has_index<T1>)
+  {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else if (compat::is_within_lifetime(&alternative_1.tag)) {
@@ -116,7 +126,8 @@ requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, T1, Ts...> {
 };
 
 template <typename T0, typename T1, typename T2, typename T3, typename... Ts>
-requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, T1, T2, T3, Ts...> {
+  requires(sizeof...(Ts) != 0)
+union RecursiveUnion<T0, T1, T2, T3, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
   T2 alternative_2;
@@ -146,7 +157,8 @@ requires(sizeof...(Ts) != 0) union RecursiveUnion<T0, T1, T2, T3, Ts...> {
       : tail{std::in_place_index_t<N - 4>{}, std::forward<Args>(args)...} {}
 
   [[nodiscard]] constexpr std::size_t index() const
-      requires(has_index<T0>&& has_index<T1>&& has_index<T2>&& has_index<T3>) {
+    requires(has_index<T0> && has_index<T1> && has_index<T2> && has_index<T3>)
+  {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else if (compat::is_within_lifetime(&alternative_1.tag)) {
