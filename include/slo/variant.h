@@ -22,7 +22,7 @@ namespace slo {
 template <std::size_t, typename>
 struct variant_alternative;
 
-template <typename T>
+template <typename>
 struct variant_size;
 
 template <std::size_t Idx, typename V>
@@ -52,20 +52,24 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 }
 
 namespace impl {
-template <template <typename...> class Storage, typename... Ts>
-class Variant {
-  using storage_type = Storage<Ts...>;
 
+template <has_alternatives T, typename = typename T::alternatives>
+class Variant;
+
+template <has_alternatives Storage, typename... Ts>
+class Variant<Storage, util::TypeList<Ts...>> {
 public:
-  storage_type storage;
-  static constexpr auto npos = storage_type::npos;
+  using alternatives = Storage::alternatives;
+  Storage storage;
+  static constexpr auto npos = Storage::npos;
   static constexpr auto size = sizeof...(Ts);
 
-  template <typename T>
-  explicit Variant(T&& obj)
-    requires(std::same_as<std::remove_reference_t<T>, Ts> || ...)
-      : storage(std::in_place_index<type_index<std::remove_reference_t<T>, Ts...>>, std::forward<T>(obj)) {}
+  // default constructor, only if alternative #0 is default constructible
+  constexpr Variant()
+    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
+      : Variant(std::in_place_index<0>) {}
 
+  // in place constructors
   template <std::size_t Idx, typename... Args>
   explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage(idx, std::forward<Args>(args)...) {}
 
@@ -73,20 +77,20 @@ public:
   explicit Variant(std::in_place_type_t<T>, Args&&... args)
       : storage(std::in_place_index<type_index<T, Ts...>>, std::forward<Args>(args)...) {}
 
-  constexpr Variant()
-    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
-      : Variant(std::in_place_index<0>) {}
+  // TODO inplace + initializer list
 
+  // converting constructor
   template <typename T>
     requires(sizeof...(Ts) != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
-             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, storage_type> != npos)
-  constexpr Variant(T&& obj) : storage(std::in_place_index<selected_index<T, storage_type>>, std::forward<T>(obj)) {}
+             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, typename Storage::alternatives> != npos)
+  constexpr explicit Variant(T&& obj)
+      : storage(std::in_place_index<selected_index<T, Storage>>, std::forward<T>(obj)) {}
 
-  constexpr Variant(Variant const& other)      = default;
-  constexpr Variant(Variant&& other) noexcept  = default;
-  Variant& operator=(Variant const& other)     = default;
-  Variant& operator=(Variant&& other) noexcept = default;
-  constexpr ~Variant()                         = default;
+  constexpr Variant(Variant const& other)                = default;
+  constexpr Variant(Variant&& other) noexcept            = default;
+  constexpr Variant& operator=(Variant const& other)     = default;
+  constexpr Variant& operator=(Variant&& other) noexcept = default;
+  constexpr ~Variant()                                   = default;
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
@@ -118,37 +122,40 @@ public:
 };
 }  // namespace impl
 
-template <std::size_t Idx, template <typename...> class T, typename... Ts>
-struct variant_alternative<Idx, impl::Variant<T, Ts...>> {
-  using type = util::pack::get<Idx, util::TypeList<Ts...>>;
+template <std::size_t Idx, impl::has_alternatives T>
+struct variant_alternative<Idx, T> {
+  using type = util::pack::get<Idx, typename T::alternatives>;
 };
 
-template <std::size_t Idx, template <typename...> class T, typename... Ts>
-struct variant_alternative<Idx, impl::Variant<T, Ts...> const> {
-  using type = util::pack::get<Idx, util::TypeList<Ts...>> const;
+template <std::size_t Idx, impl::has_alternatives T>
+struct variant_alternative<Idx, T const> {
+  using type = util::pack::get<Idx, typename T::alternatives>;
 };
 
-template <template <typename...> class T, typename... Ts>
-struct variant_size<impl::Variant<T, Ts...>> {
-  static constexpr std::size_t value = sizeof...(Ts);
+template <impl::has_alternatives T>
+struct variant_size<T> {
+  static constexpr std::size_t value = T::alternatives::size;
 };
 
-template <template <typename...> class T, typename... Ts>
-struct variant_size<impl::Variant<T, Ts...> const> {
-  static constexpr std::size_t value = sizeof...(Ts);
+template <impl::has_alternatives T>
+struct variant_size<T const> {
+  static constexpr std::size_t value = T::alternatives::size;
 };
 
 template <typename... Ts>
-using RegularVariant = impl::Variant<impl::Storage, Ts...>;
+using RegularVariant = impl::Variant<impl::Storage<Ts...>>;
 
 template <typename... Ts>
-using InvertedVariant = impl::Variant<impl::InvertedStorage, Ts...>;
+using InvertedVariant = impl::Variant<impl::InvertedStorage<Ts...>>;
 
 template <typename... Ts>
 using Variant =
-    impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type, Ts...>;
+    impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type<Ts...>>;
 
 template <typename... Ts>
 using variant = Variant<Ts...>;
+
+// template <auto... Ptrs>
+// using Union = impl::Variant<StorageProxy<Ptrs...>>;
 
 }  // namespace slo

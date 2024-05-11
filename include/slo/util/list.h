@@ -49,25 +49,8 @@ struct TypeList {
 
   template <template <typename...> class T>
   using as = T<Ts...>;
+
+  static constexpr auto size = sizeof...(Ts);
 };
-
-namespace detail {
-template <typename>
-struct ToIndexSequence;
-
-template <template<typename...> class T, typename... Ts>
-struct ToIndexSequence<T<Ts...>>{ 
-  using type = std::index_sequence_for<Ts...>;
-};
-
-template <template<bool, typename...> class T, typename... Ts>
-struct ToIndexSequence<T<false, Ts...>>{ 
-  // TODO
-  using type = std::index_sequence_for<Ts...>;
-};
-
-}
-template <typename T>
-using to_index_sequence = typename detail::ToIndexSequence<std::remove_cvref_t<T>>::type;
 
 }  // namespace slo::util

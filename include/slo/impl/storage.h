@@ -72,6 +72,7 @@ template <typename... Ts>
 class Storage {
   // discriminated union
 public:
+  using alternatives               = util::TypeList<Ts...>;
   using index_type                 = get_index_type<Ts...>;
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
@@ -97,7 +98,7 @@ public:
       : value(idx, std::forward<Args>(args)...)
       , tag(Idx) {}
   constexpr Storage() = default;
-  
+
   constexpr Storage(Storage const& other) {
     slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
   }
@@ -149,6 +150,7 @@ public:
 template <typename... Ts>
 union InvertedStorage {
   // inverted variant
+  using alternatives               = util::TypeList<Ts...>;
   using index_type                 = get_index_type<Ts...>;
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
@@ -163,7 +165,7 @@ union InvertedStorage {
 
   using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-  Wrapper<npos, error_type> dummy {};
+  Wrapper<npos, error_type> dummy{};
   struct Container {
     union_type value;
   } storage;
@@ -243,27 +245,4 @@ struct StorageChoice<false, T, F> {
   using type = F<Ts...>;
 };
 }  // namespace impl
-
-template <typename T>
-struct variant_size;
-
-template <typename... Ts>
-struct variant_size<impl::Storage<Ts...>> {
-  static constexpr std::size_t value = sizeof...(Ts);
-};
-
-template <typename... Ts>
-struct variant_size<impl::Storage<Ts...> const> {
-  static constexpr std::size_t value = sizeof...(Ts);
-};
-
-template <typename... Ts>
-struct variant_size<impl::InvertedStorage<Ts...>> {
-  static constexpr std::size_t value = sizeof...(Ts);
-};
-
-template <typename... Ts>
-struct variant_size<impl::InvertedStorage<Ts...> const> {
-  static constexpr std::size_t value = sizeof...(Ts);
-};
 }  // namespace slo

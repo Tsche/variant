@@ -3,6 +3,10 @@
 #include <utility>
 
 namespace slo::impl {
+
+template <typename T>
+concept has_alternatives = requires { typename T::alternatives; };
+
 template <typename T>
 concept has_get = requires(T obj) { obj.template get<0>(); };
 
