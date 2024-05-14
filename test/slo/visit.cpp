@@ -30,8 +30,8 @@ union Bare {
 
 using test_types = testing::Types<test_type<slo::InvertedVariant, 5>,   // small union   -> recursive
                                   test_type<slo::InvertedVariant, 50>,  // big union     -> tree
-                                  test_type<slo::RegularVariant, 5>,    // small variant -> recursive
-                                  test_type<slo::RegularVariant, 50>,    // big variant   -> tree
+                                  test_type<slo::NormalVariant, 5>,    // small variant -> recursive
+                                  test_type<slo::NormalVariant, 50>,    // big variant   -> tree
                                   slo::Union<&Bare::alt_0, &Bare::alt_1, &Bare::alt_2, &Bare::alt_3, &Bare::alt_4>
                                   >;
 TYPED_TEST_SUITE(VisitTest, test_types);
