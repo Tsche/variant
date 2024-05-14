@@ -5,7 +5,9 @@
 #include <utility>
 
 #include "impl/concepts.h"
-#include "impl/storage.h"
+#include "impl/storage/inverted.h"
+#include "impl/storage/normal.h"
+#include "impl/storage/member_ptr.h"
 
 #if defined(_MSC_VER)
 #  include "impl/visit/variadic.h"
@@ -18,6 +20,8 @@
 #include "util/pack.h"
 
 namespace slo {
+
+struct nullopt {};
 
 template <std::size_t, typename>
 struct variant_alternative;
@@ -52,6 +56,55 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 }
 
 namespace impl {
+template <typename Source, typename Dest>
+concept allowed_conversion = requires { std::type_identity_t<Dest[]>{std::declval<Source>()}; };
+
+template <std::size_t Idx, typename T>
+struct Build_FUN {
+  template <allowed_conversion<T> U>
+  auto operator()(T, U&&) -> std::integral_constant<std::size_t, Idx>;
+};
+
+template <typename V, typename = std::make_index_sequence<std::variant_size_v<V>>>
+struct Build_FUNs;
+
+template <template <typename...> class V, typename... Ts, std::size_t... Idx>
+struct Build_FUNs<V<Ts...>, std::index_sequence<Idx...>> : Build_FUN<Idx, Ts>... {
+  using Build_FUN<Idx, Ts>::operator()...;
+};
+
+template <typename T, typename V>
+inline constexpr auto selected_index = std::variant_npos;
+
+template <typename T, typename V>
+  requires std::invocable<Build_FUNs<V>, T, T>
+inline constexpr auto selected_index<T, V> = std::invoke_result_t<Build_FUNs<V>, T, T>::value;
+
+template <typename>
+struct in_place_tag : std::false_type {};
+
+template <typename T>
+struct in_place_tag<std::in_place_type_t<T>> : std::true_type {};
+template <std::size_t V>
+struct in_place_tag<std::in_place_index_t<V>> : std::true_type {};
+
+template <typename T>
+concept is_in_place = in_place_tag<T>::value;
+
+template <bool, template <typename...> class T, template <typename...> class F>
+struct StorageChoice;  // TODO find better name, move out of this file
+
+template <template <typename...> class T, template <typename...> class F>
+struct StorageChoice<true, T, F> {
+  template <typename... Ts>
+  using type = T<Ts...>;
+};
+
+template <template <typename...> class T, template <typename...> class F>
+struct StorageChoice<false, T, F> {
+  template <typename... Ts>
+  using type = F<Ts...>;
+};
 
 template <has_alternatives T, typename = typename T::alternatives>
 class Variant;
@@ -75,7 +128,7 @@ public:
 
   template <typename T, typename... Args>
   explicit Variant(std::in_place_type_t<T>, Args&&... args)
-      : storage(std::in_place_index<type_index<T, Ts...>>, std::forward<Args>(args)...) {}
+      : storage(std::in_place_index<alternatives::template get_index<T>>, std::forward<Args>(args)...) {}
 
   // TODO inplace + initializer list
 
@@ -94,7 +147,7 @@ public:
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
-    storage.template emplace<type_index<T, Ts...>>(std::forward<Args>(args)...);
+    storage.template emplace<alternatives::template get_index<T>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename... Args>
@@ -109,7 +162,7 @@ public:
 
   template <typename T, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return slo::get<type_index<T, Ts...>>(std::forward<Self>(self).storage);
+    return slo::get<alternatives::template get_index<T>>(std::forward<Self>(self).storage);
   }
 
   template <typename Self, typename V>
@@ -142,20 +195,64 @@ struct variant_size<T const> {
   static constexpr std::size_t value = T::alternatives::size;
 };
 
+/**
+ * @brief This implementation of variant 
+ * 
+ * @tparam Ts Alternative types
+ */
 template <typename... Ts>
-using RegularVariant = impl::Variant<impl::Storage<Ts...>>;
+using NormalVariant = impl::Variant<impl::Storage<Ts...>>;
 
+/**
+ * @brief This implementation of variant hides the index in the actual alternative types
+ *        hence inverting the variant.
+ * @warning Your compiler must support C++26 `std::is_within_lifetime` for this to work in
+ *          constant evaluated context. If your compiler has an intrinsic that can be used to
+ *          implement `is_within_lifetime`, it will be used.
+ * 
+ * @tparam Ts Alternative types
+ */
 template <typename... Ts>
 using InvertedVariant = impl::Variant<impl::InvertedStorage<Ts...>>;
 
+
+/**
+ * @brief If the compiler supports `std::is_within_lifetime` or has an intrinsic
+ *        that can be used to implement this, this type will use the inverted
+ *        storage strategy to reduce padding as much as possible.
+ * 
+ * @tparam Ts Alternative types
+ */
 template <typename... Ts>
 using Variant =
     impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type<Ts...>>;
 
+/**
+ * @brief Same as slo::Variant. Provided for compatibility with `std::variant`.
+ * 
+ * @tparam Ts Alternative types
+ */
 template <typename... Ts>
 using variant = Variant<Ts...>;
 
-// template <auto... Ptrs>
-// using Union = impl::Variant<StorageProxy<Ptrs...>>;
+/**
+ * @brief This variant implementation does not generate the underlying union,
+ *        instead it is templated over pointers to non-static data members
+ *        of an existing complete union type.
+ * @warning All template arguments must refer to pointers to non-static data members of the same union.
+ * @tparam Ptrs Pointers to non-static data members of a union
+ */
+template <auto... Ptrs>
+using Union = impl::Variant<impl::StorageProxy<impl::MemberPtr<Ptrs>...>>;
+
+template <typename... Ts, typename... Args>
+Variant<Ts...> make_variant(Args&&... args) {
+  return {std::forward<Args>(args)...};
+}
+
+template <auto... Ptrs, typename... Args>
+Union<Ptrs...> make_variant(Args&&... args) {
+  return {std::forward<Args>(args)...};
+}
 
 }  // namespace slo

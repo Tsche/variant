@@ -43,7 +43,7 @@
 
 # misc
 **/compile_commands.json
-**/scratchpad.*
+**/scratchpad*.*
 **/CMakeUserPresets.json
 
 # Caches

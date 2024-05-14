@@ -4,8 +4,8 @@ source = "underlying.cpp"
 "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'generate_union')].dur"
 "total" = "traceEvents[?name=='ExecuteCompiler'].dur"
 
-#[profile.Std]
-#STANDARD_VARIANT = true
+[profile.Std]
+STANDARD_VARIANT = true
 
 [profile.Tree]
 TREE = true

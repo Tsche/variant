@@ -1,5 +1,9 @@
 #pragma once
-#include <utility>
+#include <concepts>
+#include <cstddef>
+#include <type_traits>
+
+#include "slo/util/pack.h"
 
 namespace slo::util {
 
@@ -41,16 +45,27 @@ struct ToCBTImpl<Node, TypeList<T1, T2, In...>, TypeList<Out...>> {
 template <template <typename...> class Node, typename... Ts>
 using to_cbt = typename detail::ToCBTImpl<Node, TypeList<Ts...>, TypeList<>>::type;
 
+template <typename T, typename... Ts>
+consteval std::size_t get_type_index() {
+  std::size_t index = 0;
+  (void)((!std::same_as<T, Ts> ? ++index, false : true) || ...);
+  return index;
+}
+
+template <typename T, typename... Ts>
+constexpr inline std::size_t type_index = get_type_index<std::remove_cvref_t<T>, Ts...>();
 
 template <typename... Ts>
 struct TypeList {
-  template <template <typename...> class TreeType>
-  using as_cbt = to_cbt<TreeType, Ts...>;
+  static constexpr std::size_t size = sizeof...(Ts);
 
-  template <template <typename...> class T>
-  using as = T<Ts...>;
+  template <std::size_t Idx>
+  using get = pack::get<Idx, TypeList>;
 
-  static constexpr auto size = sizeof...(Ts);
+  template <typename T>
+  constexpr static std::size_t get_index = type_index<T, Ts...>;
+
+  using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
 };
 
 }  // namespace slo::util

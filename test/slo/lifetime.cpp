@@ -19,12 +19,20 @@ auto get_test_type(std::index_sequence<Idx...>) {
 template <template <typename...> class T, std::size_t Count>
 using test_type = typename decltype(get_test_type<T>(std::make_index_sequence<Count>()))::type;
 
-using test_types = testing::Types<test_type<std::variant, 5>,  // control
-                                  test_type<slo::InvertedVariant, 5>,    // small union   -> recursive
-                                  test_type<slo::InvertedVariant, 50>,   // big union     -> tree
-                                  test_type<slo::RegularVariant, 5>,  // small variant -> recursive
-                                  test_type<slo::RegularVariant, 50>  // big variant   -> tree
-                                  >;
+union Bare {
+  Lifetime<0> alt_0;
+  Lifetime<1> alt_1;
+  Lifetime<2> alt_2;
+  Lifetime<3> alt_3;
+  Lifetime<4> alt_4;
+};
+
+using test_types = testing::Types<test_type<std::variant, 5>,           // control
+                                  test_type<slo::InvertedVariant, 5>,   // small union   -> recursive
+                                  test_type<slo::InvertedVariant, 50>,  // big union     -> tree
+                                  test_type<slo::RegularVariant, 5>,    // small variant -> recursive
+                                  test_type<slo::RegularVariant, 50>,   // big variant   -> tree
+                                  slo::Union<&Bare::alt_0, &Bare::alt_1, &Bare::alt_2, &Bare::alt_3, &Bare::alt_4>>;
 TYPED_TEST_SUITE(LifetimeTest, test_types);
 
 TYPED_TEST(LifetimeTest, DefaultCtor) {
