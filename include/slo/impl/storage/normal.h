@@ -18,14 +18,15 @@ public:
   using alternatives               = util::TypeList<Ts...>;
   using index_type                 = alternatives::index_type;
   constexpr static index_type npos = static_cast<index_type>(~0U);
+  constexpr static bool is_trivially_destructible = (std::is_trivially_destructible_v<Ts> && ...);
 
 private:
   template <typename... Us>
-  static consteval auto generate_union() -> RecursiveUnion<Us...>;
+  static consteval auto generate_union() -> RecursiveUnion<is_trivially_destructible, Us...>;
 
   template <typename... Us>
     requires(sizeof...(Us) >= 42)
-  static consteval auto generate_union() -> util::to_cbt<TreeUnion, Ts...>;
+  static consteval auto generate_union() -> TreeUnion<is_trivially_destructible, Ts...>;
 
   using union_type = decltype(generate_union<Ts...>());
   union {

@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <memory>
 
@@ -31,18 +32,19 @@ struct TaggedWrapper {
 template <typename... Ts>
 union InvertedStorage {
   // inverted variant
-  using alternatives               = util::TypeList<Ts...>;
-  using index_type                 = alternatives::index_type;
-  constexpr static index_type npos = static_cast<index_type>(~0U);
+  using alternatives                              = util::TypeList<Ts...>;
+  using index_type                                = alternatives::index_type;
+  constexpr static index_type npos                = static_cast<index_type>(~0U);
+  constexpr static bool is_trivially_destructible = (std::is_trivially_destructible_v<Ts> && ...);
 
   template <std::size_t... Is>
   static constexpr auto generate_union(std::index_sequence<Is...>)
-      -> RecursiveUnion<TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
+      -> RecursiveUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
 
   template <std::size_t... Is>
     requires(sizeof...(Ts) >= 42)
   static constexpr auto generate_union(std::index_sequence<Is...>)
-      -> util::to_cbt<TreeUnion, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
+      -> TreeUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
 
   using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 

@@ -55,45 +55,45 @@ struct Qualifiers {
 };
 
 TYPED_TEST(VisitTest, lvref) {
-  auto obj = TypeParam{std::in_place_index<1>};
+  auto variant = TypeParam{std::in_place_index<1>};
   slo::visit(
       [](auto&& obj) {
         auto qualifiers = Qualifiers(std::forward<decltype(obj)>(obj));
         ASSERT_FALSE(qualifiers.is_const);
         ASSERT_FALSE(qualifiers.is_rvalue);
       },
-      obj);
+      variant);
 
 }
 TYPED_TEST(VisitTest, const_lvref) {
-  const auto obj = TypeParam{std::in_place_index<1>};
+  const auto variant = TypeParam{std::in_place_index<1>};
   slo::visit(
       [](auto&& obj) {
         auto qualifiers = Qualifiers(std::forward<decltype(obj)>(obj));
         ASSERT_TRUE(qualifiers.is_const);
         ASSERT_FALSE(qualifiers.is_rvalue);
       },
-      obj);
+      variant);
 }
 
 TYPED_TEST(VisitTest, rvref) {
-  auto obj = TypeParam{std::in_place_index<1>};
+  auto variant = TypeParam{std::in_place_index<1>};
   slo::visit(
       [](auto&& obj) {
         auto qualifiers = Qualifiers(std::forward<decltype(obj)>(obj));
         ASSERT_FALSE(qualifiers.is_const);
         ASSERT_TRUE(qualifiers.is_rvalue);
       },
-      std::move(obj));
+      std::move(variant));
 }
 
 TYPED_TEST(VisitTest, const_rvref) {
-  const auto obj = TypeParam{std::in_place_index<1>};
+  const auto variant = TypeParam{std::in_place_index<1>};
   slo::visit(
       [](auto&& obj) {
         auto qualifiers = Qualifiers(std::forward<decltype(obj)>(obj));
         ASSERT_TRUE(qualifiers.is_const);
         ASSERT_TRUE(qualifiers.is_rvalue);
       },
-      std::move(obj));
+      std::move(variant));
 }

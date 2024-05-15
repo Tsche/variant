@@ -8,6 +8,7 @@
 #include "common.h"
 
 namespace slo::impl {
+namespace detail {
 template <auto>
 struct MemberPtr;
 template <typename C, typename R, R C::* Ptr>
@@ -98,4 +99,7 @@ public:
     return std::forward<Self>(self).value.*member<Idx>;
   }
 };
+}
+template <auto... Ptrs>
+using StorageProxy = detail::StorageProxy<detail::MemberPtr<Ptrs>...>;
 }  // namespace slo::impl

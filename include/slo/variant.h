@@ -243,7 +243,7 @@ using variant = Variant<Ts...>;
  * @tparam Ptrs Pointers to non-static data members of a union
  */
 template <auto... Ptrs>
-using Union = impl::Variant<impl::StorageProxy<impl::MemberPtr<Ptrs>...>>;
+using Union = impl::Variant<impl::StorageProxy<Ptrs...>>;
 
 template <typename... Ts, typename... Args>
 Variant<Ts...> make_variant(Args&&... args) {

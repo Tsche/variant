@@ -1,16 +1,25 @@
 #pragma once
 #include <utility>
+#include <type_traits>
 #include <slo/util/compat.h>
 #include <slo/impl/concepts.h>
 
 namespace slo::impl {
-template <typename... Ts>
+template <bool Trivial, typename... Ts>
 union RecursiveUnion;
 
-template <typename T>
-union RecursiveUnion<T> {
+template <bool Trivial, typename T>
+union RecursiveUnion<Trivial, T> {
   T value;
-  constexpr ~RecursiveUnion() {}
+
+  constexpr RecursiveUnion(RecursiveUnion const&)            = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)                 = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
+  constexpr ~RecursiveUnion()                                = default;
+  constexpr ~RecursiveUnion()
+    requires(!Trivial)
+  {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args) : value{std::forward<Args>(args)...} {}
@@ -32,13 +41,20 @@ union RecursiveUnion<T> {
   }
 };
 
-template <typename T0, typename... Ts>
+template <bool Trivial, typename T0, typename... Ts>
   requires(sizeof...(Ts) != 0)
-union RecursiveUnion<T0, Ts...> {
+union RecursiveUnion<Trivial, T0, Ts...> {
   T0 alternative_0;
-  RecursiveUnion<Ts...> tail;
+  RecursiveUnion<Trivial, Ts...> tail;
 
-  constexpr ~RecursiveUnion() {}
+  constexpr RecursiveUnion(RecursiveUnion const&)            = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)                 = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
+  constexpr ~RecursiveUnion()                                = default;
+  constexpr ~RecursiveUnion()
+    requires(!Trivial)
+  {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
@@ -72,14 +88,21 @@ union RecursiveUnion<T0, Ts...> {
   }
 };
 
-template <typename T0, typename T1, typename... Ts>
+template <bool Trivial, typename T0, typename T1, typename... Ts>
   requires(sizeof...(Ts) != 0)
-union RecursiveUnion<T0, T1, Ts...> {
+union RecursiveUnion<Trivial, T0, T1, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
-  RecursiveUnion<Ts...> tail;
+  RecursiveUnion<Trivial, Ts...> tail;
 
-  constexpr ~RecursiveUnion() {}
+  constexpr RecursiveUnion(RecursiveUnion const&)            = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)                 = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
+  constexpr ~RecursiveUnion()                                = default;
+  constexpr ~RecursiveUnion()
+    requires(!Trivial)
+  {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
@@ -125,16 +148,23 @@ union RecursiveUnion<T0, T1, Ts...> {
   }
 };
 
-template <typename T0, typename T1, typename T2, typename T3, typename... Ts>
+template <bool Trivial, typename T0, typename T1, typename T2, typename T3, typename... Ts>
   requires(sizeof...(Ts) != 0)
-union RecursiveUnion<T0, T1, T2, T3, Ts...> {
+union RecursiveUnion<Trivial, T0, T1, T2, T3, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
   T2 alternative_2;
   T3 alternative_3;
-  RecursiveUnion<Ts...> tail;
+  RecursiveUnion<Trivial, Ts...> tail;
 
-  constexpr ~RecursiveUnion() {}
+  constexpr RecursiveUnion(RecursiveUnion const&)            = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)                 = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
+  constexpr ~RecursiveUnion()                                = default;
+  constexpr ~RecursiveUnion()
+    requires(!Trivial)
+  {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
