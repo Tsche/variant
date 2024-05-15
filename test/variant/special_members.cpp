@@ -87,7 +87,6 @@ union MoveOnly {
 TEST(SpecialMembers, MoveOnly) {
   using standard = std::variant<int, std::unique_ptr<int>>;
   using normal   = slo::NormalVariant<int, std::unique_ptr<int>>;
-  using inverted = slo::InvertedVariant<int, std::unique_ptr<int>>;
   using proxy    = slo::Union<&MoveOnly::foo, &MoveOnly::bar>;
 
   auto expected = Traits{.destructor       = DEFINED,
@@ -98,6 +97,5 @@ TEST(SpecialMembers, MoveOnly) {
 
   expected.verify<standard>();
   expected.verify<normal>();
-  expected.verify<inverted>();
   expected.verify<proxy>();
 }

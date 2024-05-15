@@ -1,22 +1,23 @@
 #pragma once
 #include <cstddef>
 #include <concepts>
+#include <initializer_list>
 #include <type_traits>
 #include <utility>
 
+#include "impl/feature.h"
 #include "impl/concepts.h"
 #include "impl/storage/inverted.h"
 #include "impl/storage/normal.h"
 #include "impl/storage/member_ptr.h"
 
-#if defined(_MSC_VER)
-#  include "impl/visit/variadic.h"
-#else
+#if USING(SLO_MACRO_VISIT)
 #  include "impl/visit/macro.h"
+#else
+#  include "impl/visit/variadic.h"
 #endif
 
 #include "util/compat.h"
-#include "util/list.h"
 #include "util/pack.h"
 
 namespace slo {
@@ -47,7 +48,7 @@ constexpr decltype(auto) get(V&& variant_) {
 
 template <typename F, typename V>
 constexpr decltype(auto) visit(F&& visitor, V&& variant) {
-#if !defined(_MSC_VER)
+#if USING(SLO_MACRO_VISIT)
   return impl::macro::visit(std::forward<F>(visitor), std::forward<V>(variant));
 #else
   return impl::variadic::visit(std::forward<F>(visitor), std::forward<V>(variant),
@@ -280,7 +281,9 @@ using InvertedVariant = impl::Variant<impl::InvertedStorage<Ts...>>;
  */
 template <typename... Ts>
 using Variant =
-    impl::Variant<impl::StorageChoice<HAS_IS_WITHIN_LIFETIME, impl::InvertedStorage, impl::Storage>::type<Ts...>>;
+    impl::Variant<typename impl::StorageChoice<(HAS_IS_WITHIN_LIFETIME && (std::is_standard_layout_v<Ts> && ...)), 
+                                                impl::InvertedStorage, 
+                                                impl::Storage>::template type<Ts...>>;
 
 /**
  * @brief Same as slo::Variant. Provided for compatibility with `std::variant`.

@@ -3,6 +3,7 @@
 #include <utility>
 #include <memory>
 
+#include <slo/impl/feature.h>
 #include <slo/impl/union/recursive.h>
 #include <slo/impl/union/tree.h>
 #include <slo/util/list.h>
@@ -11,6 +12,11 @@
 
 namespace slo::impl {
 
+/**
+ * @brief Essentially a plain discriminated union.
+ * 
+ * @tparam Ts 
+ */
 template <typename... Ts>
 class Storage {
   // discriminated union
@@ -25,7 +31,7 @@ private:
   static consteval auto generate_union() -> RecursiveUnion<is_trivially_destructible, Us...>;
 
   template <typename... Us>
-    requires(sizeof...(Us) >= 42)
+    requires(sizeof...(Us) >= SLO_TREE_THRESHOLD)
   static consteval auto generate_union() -> TreeUnion<is_trivially_destructible, Ts...>;
 
   using union_type = decltype(generate_union<Ts...>());

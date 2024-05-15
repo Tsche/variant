@@ -4,9 +4,11 @@
 #include <utility>
 #include <memory>
 
-#include <slo/util/list.h>
+#include <slo/impl/feature.h>
 #include <slo/impl/union/recursive.h>
 #include <slo/impl/union/tree.h>
+#include <slo/util/list.h>
+
 #include "common.h"
 
 namespace slo::impl {
@@ -29,9 +31,33 @@ struct TaggedWrapper {
   ValueType storage;
 };
 
+/**
+ * @brief Storage for an inverted variant. This attempts to reduce padding by hiding the
+ *        tag in the alternatives themselves. Outside of constant evaluated context the 
+ *        current tag can be retrieved through an inactive member, since all alternatives
+ *        share the same common initial sequence.
+ *
+ *        Due to [expr.const]/5.10 reading the tag through an inactive member is not possible.
+ *        To work around that C++26 `std::is_within_lifetime` or clang/gcc's intrinsic
+ *        `__builtin_constant_p` can be used to recursively determine which member is active.
+ *        The tag can then be read from the active member, which in turn allows visitation of
+ *        the variant.
+ *
+ * @warning Requires C++26 `std::is_within_lifetime` or clang/gcc `__builtin_constant_p` intrinsic
+ *          to work in constant evaluated context.
+ *
+ * @warning [class.mem]/26 mandates standard-layout unions for this technique, consequently it will
+ *          only work if all alternatives are standard-layout types.
+ * 
+ * @tparam Ts... Alternative types. Must be standard layout.
+ */
 template <typename... Ts>
 union InvertedStorage {
   // inverted variant
+  static_assert((std::is_standard_layout_v<Ts> && ...), 
+                "[class.mem]/26 mandates standard-layout unions for this technique. "
+                "This means only standard-layout alternatives can be used.");
+
   using alternatives                              = util::TypeList<Ts...>;
   using index_type                                = alternatives::index_type;
   constexpr static index_type npos                = static_cast<index_type>(~0U);
@@ -42,7 +68,7 @@ union InvertedStorage {
       -> RecursiveUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
 
   template <std::size_t... Is>
-    requires(sizeof...(Ts) >= 42)
+    requires(sizeof...(Ts) >= SLO_TREE_THRESHOLD)
   static constexpr auto generate_union(std::index_sequence<Is...>)
       -> TreeUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
 

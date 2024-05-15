@@ -4,9 +4,18 @@
 #include <type_traits>
 #include <utility>
 
+#include <slo/impl/feature.h>
 #include <slo/util/list.h>
 #include <slo/util/concepts.h>
 #include "common.h"
+
+
+//TODO implement proper feature flags
+#if USING(SLO_HIDE_IN_PADDING)
+#define SLO_UNION_ATTR [[no_unique_address]]
+#else
+#define SLO_UNION_ATTR
+#endif
 
 namespace slo::impl {
 namespace detail {
@@ -32,11 +41,32 @@ struct StorageProxy {
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
 private:
-  union {
-    error_type dummy{};
-    union_type value;
+  union Union {
+    error_type dummy;
+    SLO_UNION_ATTR union_type value;
+    
+    constexpr Union() : dummy{} {}
+    constexpr Union(Union const& other)      = default;
+    constexpr Union(Union&& other) noexcept  = default;
+    Union& operator=(Union const& other)     = default;
+    Union& operator=(Union&& other) noexcept = default;
+
+    constexpr ~Union()
+      requires(alternatives::template all<std::is_trivially_destructible>)
+    = default;
+    constexpr ~Union() {}
   };
 
+  // With SLO_HIDE_IN_PADDING is enabled, the tag _may_ be hidden in padding. 
+  // Unfortunately certain operations (such as move construction)  _may_ clobber 
+  // tail padding, hence we must assume the tag is lost afterwards. This shouldn't 
+  // be a problem since we set the tag after construction anyway.
+
+  // It's possibly problematic if a constructor throws - the variant might end up with
+  // an overwritten tag that suggests it is still valid.
+  
+  // See https://github.com/llvm/llvm-project/issues/60711
+  SLO_UNION_ATTR Union storage;
   index_type tag{npos};
 
   template <std::size_t Idx>
@@ -45,18 +75,20 @@ private:
 public:
   template <std::size_t Idx, typename... Args>
   constexpr explicit StorageProxy(std::in_place_index_t<Idx>, Args&&... args) {
-    std::construct_at(std::addressof(value.*member<Idx>), std::forward<Args>(args)...);
+    std::construct_at(std::addressof(storage.value.*member<Idx>), std::forward<Args>(args)...);
     tag = Idx;
   }
 
-  constexpr StorageProxy(StorageProxy const& other) = default;
-  constexpr StorageProxy(StorageProxy&& other) noexcept = default;
-  StorageProxy& operator=(StorageProxy const& other) = default;
+  constexpr StorageProxy(StorageProxy const& other)      = default;
+  constexpr StorageProxy(StorageProxy&& other) noexcept  = default;
+  StorageProxy& operator=(StorageProxy const& other)     = default;
   StorageProxy& operator=(StorageProxy&& other) noexcept = default;
 
   constexpr StorageProxy() {}
-  constexpr ~StorageProxy() requires std::is_trivially_destructible_v<union_type> = default;
-  constexpr ~StorageProxy() { reset();}
+  constexpr ~StorageProxy()
+    requires std::is_trivially_destructible_v<union_type>
+  = default;
+  constexpr ~StorageProxy() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
 
@@ -70,7 +102,7 @@ public:
   template <std::size_t Idx, typename... Args>
   constexpr void emplace(Args&&... args) {
     reset();
-    std::construct_at(std::addressof(value.*member<Idx>), std::forward<Args>(args)...);
+    std::construct_at(std::addressof(storage.value.*member<Idx>), std::forward<Args>(args)...);
     tag = Idx;
   }
 
@@ -81,11 +113,13 @@ public:
 
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return std::forward<Self>(self).value.*member<Idx>;
+    return std::forward<Self>(self).storage.value.*member<Idx>;
   }
 };
-}
+}  // namespace detail
 
 template <auto... Ptrs>
 using StorageProxy = detail::StorageProxy<detail::MemberPtr<Ptrs>...>;
 }  // namespace slo::impl
+
+#undef SLO_UNION_ATTR
