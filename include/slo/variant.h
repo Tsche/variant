@@ -55,6 +55,8 @@ constexpr decltype(auto) visit(F&& visitor, V&& variant) {
 #endif
 }
 
+static constexpr std::size_t variant_npos = -1ULL;
+
 namespace impl {
 template <typename Source, typename Dest>
 concept allowed_conversion = requires { std::type_identity_t<Dest[]>{std::declval<Source>()}; };
@@ -65,7 +67,7 @@ struct Build_FUN {
   auto operator()(T, U&&) -> std::integral_constant<std::size_t, Idx>;
 };
 
-template <typename V, typename = std::make_index_sequence<std::variant_size_v<V>>>
+template <typename V, typename = std::make_index_sequence<V::size>>
 struct Build_FUNs;
 
 template <template <typename...> class V, typename... Ts, std::size_t... Idx>
@@ -74,7 +76,7 @@ struct Build_FUNs<V<Ts...>, std::index_sequence<Idx...>> : Build_FUN<Idx, Ts>...
 };
 
 template <typename T, typename V>
-inline constexpr auto selected_index = std::variant_npos;
+inline constexpr auto selected_index = variant_npos;
 
 template <typename T, typename V>
   requires std::invocable<Build_FUNs<V>, T, T>
@@ -111,7 +113,6 @@ class Variant {
 public:
   using alternatives = Storage::alternatives;
   Storage storage;
-  static constexpr auto npos = Storage::npos;
 
   // default constructor, only if alternative #0 is default constructible
   constexpr Variant()
@@ -131,9 +132,9 @@ public:
   // converting constructor
   template <typename T>
     requires(alternatives::size != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
-             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, typename Storage::alternatives> != npos)
+             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, typename Storage::alternatives> != variant_npos)
   constexpr explicit Variant(T&& obj)
-      : storage(std::in_place_index<selected_index<T, Storage>>, std::forward<T>(obj)) {}
+      : storage(std::in_place_index<selected_index<T, typename Storage::alternatives>>, std::forward<T>(obj)) {}
 
   // checking for trivial destructibility is sufficient here, see https://standards.pydong.org/c++/class.prop#1.3
 
@@ -199,8 +200,13 @@ public:
     return slo::visit(std::forward<V>(visitor), std::forward<Self>(self));
   }
 
-  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == npos; }
-  [[nodiscard]] constexpr std::size_t index() const noexcept { return storage.index(); }
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == Storage::npos; }
+  [[nodiscard]] constexpr std::size_t index() const noexcept {
+    if (auto idx = storage.index(); idx != Storage::npos) {
+      return idx;
+    }
+    return variant_npos;
+  }
 };
 }  // namespace impl
 
