@@ -112,48 +112,69 @@ template <has_alternatives Storage>
 class Variant {
 public:
   using alternatives = Storage::alternatives;
+  static constexpr auto npos = Storage::npos;
   Storage storage;
 
   // default constructor, only if alternative #0 is default constructible
-  constexpr Variant()
-    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)
-      : Variant(std::in_place_index<0>) {}
+  constexpr Variant() 
+    noexcept(std::is_nothrow_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/5
+    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)          // [variant.ctor]/2
+      : Variant(std::in_place_index<0>) {}                                                // [variant.ctor]/3
 
-  // in place constructors
-  template <std::size_t Idx, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) : storage(idx, std::forward<Args>(args)...) {}
-
-  template <typename T, typename... Args>
-  explicit Variant(std::in_place_type_t<T>, Args&&... args)
-      : storage(std::in_place_index<alternatives::template get_index<T>>, std::forward<Args>(args)...) {}
-
-  // TODO inplace + initializer list
-
-  // converting constructor
-  template <typename T>
-    requires(alternatives::size != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
-             !is_in_place<std::remove_cvref_t<T>> && selected_index<T, typename Storage::alternatives> != variant_npos)
-  constexpr explicit Variant(T&& obj)
-      : storage(std::in_place_index<selected_index<T, typename Storage::alternatives>>, std::forward<T>(obj)) {}
-
-  // checking for trivial destructibility is sufficient here, see https://standards.pydong.org/c++/class.prop#1.3
-
-  constexpr Variant(Variant const& other)            = default;
-  constexpr Variant(Variant&& other)                 = default;
-  constexpr Variant& operator=(Variant const& other) = default;
-  constexpr Variant& operator=(Variant&& other)      = default;
-
+  constexpr Variant(Variant const& other) = default;
   constexpr Variant(Variant const& other)
-    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_copy_constructible>)
+    noexcept(alternatives::template all<std::is_nothrow_copy_constructible>)  // [variant.ctor]/8
+    requires(!std::is_trivially_destructible_v<Storage> 
+             && alternatives::template all<std::is_copy_constructible>)       // [variant.ctor]/9
   {
     slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
   }
 
-  constexpr Variant(Variant&& other) noexcept
-    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_move_constructible>)
+  constexpr Variant(Variant&& other) = default;
+  constexpr Variant(Variant&& other)
+    noexcept(alternatives::template all<std::is_nothrow_move_constructible>)  // [variant.ctor]/12
+    requires(!std::is_trivially_destructible_v<Storage>                       // [variant.ctor]/13
+             && alternatives::template all<std::is_move_constructible>)
   {
-    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::forward<T>(obj)); }, std::move(other));
   }
+
+  // converting constructor
+  template <typename T>
+    requires(alternatives::size != 0                                                // [variant.ctor]/15.1
+             && !std::same_as<std::remove_cvref_t<T>, Variant>                      // [variant.ctor]/15.2
+             && !is_in_place<std::remove_cvref_t<T>>                                // [variant.ctor]/15.3
+             && selected_index<T, alternatives> != variant_npos)                    // [variant.ctor]/15.4, [variant.ctor]/15.5
+  constexpr explicit Variant(T&& obj)
+    noexcept(std::is_nothrow_constructible_v<                                       // [variant.ctor]/18
+      typename util::pack::get<selected_index<T, alternatives>, alternatives>, T>) 
+      : storage(std::in_place_index<selected_index<T, alternatives>>, std::forward<T>(obj)) {}
+
+  // in place constructors
+  template <typename T, typename... Args>
+  explicit Variant(std::in_place_type_t<T>, Args&&... args)
+    noexcept(std::is_nothrow_constructible_v<T, Args...>)  // [variant.ctor]/23
+      : storage(std::in_place_index<alternatives::template get_index<T>>, std::forward<Args>(args)...) {}
+
+  template <typename T, typename U, typename... Args>
+  explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args)
+    noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>) // [variant.ctor]/28
+      : storage(std::in_place_index<alternatives::template get_index<T>>, init_list, std::forward<Args>(args)...) {}
+
+  template <std::size_t Idx, typename... Args>
+  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) 
+    noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, Args...>) // [variant.ctor]/33
+      : storage(idx, std::forward<Args>(args)...) {}
+
+  template <std::size_t Idx, typename U, typename... Args>
+  explicit Variant(std::in_place_index_t<Idx> idx, std::initializer_list<U> init_list, Args&&... args)
+  noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, std::initializer_list<U>&, Args...>) // not standardized
+      : storage(idx, init_list, std::forward<Args>(args)...) {}
+
+  // TODO inplace + initializer list
+
+  constexpr Variant& operator=(Variant const& other) = default;
+  constexpr Variant& operator=(Variant&& other)      = default;
 
   Variant& operator=(Variant const& other)
     requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_copy_assignable>)
@@ -168,7 +189,7 @@ public:
     requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_move_assignable>)
   {
     if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::forward<T>(obj)); }, std::move(other));
     }
     return *this;
   }
@@ -200,9 +221,9 @@ public:
     return slo::visit(std::forward<V>(visitor), std::forward<Self>(self));
   }
 
-  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == Storage::npos; }
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return storage.index() == npos; }
   [[nodiscard]] constexpr std::size_t index() const noexcept {
-    if (auto idx = storage.index(); idx != Storage::npos) {
+    if (auto idx = storage.index(); idx != npos) {
       return idx;
     }
     return variant_npos;
