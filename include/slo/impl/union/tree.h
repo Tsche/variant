@@ -35,7 +35,7 @@ union TreeUnion<Trivial, TreeUnion<Trivial, Ts...>, TreeUnion<Trivial, Us...>> {
     requires(Idx >= TreeUnion<Trivial, Ts...>::size)
       : right{std::in_place_index<Idx - TreeUnion<Trivial, Ts...>::size>, std::forward<Args>(args)...} {}
 
-  constexpr std::size_t index() const {
+  [[nodiscard]] constexpr std::size_t index() const {
     if (compat::is_within_lifetime(&left)) {
       return left.index();
     }
@@ -75,7 +75,7 @@ union TreeUnion<Trivial, TreeUnion<Trivial, Ts...>, U> {
     requires(Idx == TreeUnion<Trivial, Ts...>::size)
       : right{std::forward<Args>(args)...} {}
 
-  constexpr std::size_t index() const {
+  [[nodiscard]] constexpr std::size_t index() const {
     if (compat::is_within_lifetime(&right.tag)) {
       return right.tag;
     }
@@ -117,7 +117,7 @@ union TreeUnion<Trivial, T, U> {
   template <typename... Args>
   constexpr explicit TreeUnion(std::in_place_index_t<1>, Args&&... args) : right{std::forward<Args>(args)...} {}
 
-  constexpr std::size_t index() const {
+  [[nodiscard]] constexpr std::size_t index() const {
     if (compat::is_within_lifetime(&left.tag)) {
       return left.tag;
     } else if (compat::is_within_lifetime(&right.tag)) {
@@ -160,7 +160,7 @@ union TreeUnion<Trivial, T> {
   template <typename... Args>
   constexpr explicit TreeUnion(std::in_place_index_t<0>, Args&&... args) : left{std::forward<Args>(args)...} {}
 
-  constexpr std::size_t index() const {
+  [[nodiscard]] constexpr std::size_t index() const {
     if (compat::is_within_lifetime(&left.tag)) {
       return left.tag;
     }

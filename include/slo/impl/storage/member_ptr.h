@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <memory>
+#include <type_traits>
 #include <utility>
 
 #include <slo/util/list.h>
@@ -48,30 +49,14 @@ public:
     tag = Idx;
   }
 
-  constexpr StorageProxy() = default;
+  constexpr StorageProxy(StorageProxy const& other) = default;
+  constexpr StorageProxy(StorageProxy&& other) noexcept = default;
+  StorageProxy& operator=(StorageProxy const& other) = default;
+  StorageProxy& operator=(StorageProxy&& other) noexcept = default;
 
-  constexpr StorageProxy(StorageProxy const& other) {
-    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-  }
-
-  constexpr StorageProxy(StorageProxy&& other) noexcept {
-    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-  }
-
-  StorageProxy& operator=(StorageProxy const& other) {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-    }
-    return *this;
-  }
-  StorageProxy& operator=(StorageProxy&& other) noexcept {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-    }
-    return *this;
-  }
-
-  constexpr ~StorageProxy() { reset(); }
+  constexpr StorageProxy() {}
+  constexpr ~StorageProxy() requires std::is_trivially_destructible_v<union_type> = default;
+  constexpr ~StorageProxy() { reset();}
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
 
@@ -100,6 +85,7 @@ public:
   }
 };
 }
+
 template <auto... Ptrs>
 using StorageProxy = detail::StorageProxy<detail::MemberPtr<Ptrs>...>;
 }  // namespace slo::impl

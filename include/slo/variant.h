@@ -106,16 +106,12 @@ struct StorageChoice<false, T, F> {
   using type = F<Ts...>;
 };
 
-template <has_alternatives T, typename = typename T::alternatives>
-class Variant;
-
-template <has_alternatives Storage, typename... Ts>
-class Variant<Storage, util::TypeList<Ts...>> {
+template <has_alternatives Storage>
+class Variant {
 public:
   using alternatives = Storage::alternatives;
   Storage storage;
   static constexpr auto npos = Storage::npos;
-  static constexpr auto size = sizeof...(Ts);
 
   // default constructor, only if alternative #0 is default constructible
   constexpr Variant()
@@ -134,16 +130,49 @@ public:
 
   // converting constructor
   template <typename T>
-    requires(sizeof...(Ts) != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
+    requires(alternatives::size != 0 && !std::same_as<std::remove_cvref_t<T>, Variant> &&
              !is_in_place<std::remove_cvref_t<T>> && selected_index<T, typename Storage::alternatives> != npos)
   constexpr explicit Variant(T&& obj)
       : storage(std::in_place_index<selected_index<T, Storage>>, std::forward<T>(obj)) {}
 
-  constexpr Variant(Variant const& other)                = default;
-  constexpr Variant(Variant&& other) noexcept            = default;
-  constexpr Variant& operator=(Variant const& other)     = default;
-  constexpr Variant& operator=(Variant&& other) noexcept = default;
-  constexpr ~Variant()                                   = default;
+  // checking for trivial destructibility is sufficient here, see https://standards.pydong.org/c++/class.prop#1.3
+
+  constexpr Variant(Variant const& other)            = default;
+  constexpr Variant(Variant&& other)                 = default;
+  constexpr Variant& operator=(Variant const& other) = default;
+  constexpr Variant& operator=(Variant&& other)      = default;
+
+  constexpr Variant(Variant const& other)
+    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_copy_constructible>)
+  {
+    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+  }
+
+  constexpr Variant(Variant&& other) noexcept
+    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_move_constructible>)
+  {
+    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+  }
+
+  Variant& operator=(Variant const& other)
+    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_copy_assignable>)
+  {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
+    }
+    return *this;
+  }
+
+  Variant& operator=(Variant&& other) noexcept
+    requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_move_assignable>)
+  {
+    if (this != std::addressof(other)) {
+      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
+    }
+    return *this;
+  }
+
+  constexpr ~Variant() = default;
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
@@ -196,8 +225,8 @@ struct variant_size<T const> {
 };
 
 /**
- * @brief This implementation of variant 
- * 
+ * @brief This implementation of variant
+ *
  * @tparam Ts Alternative types
  */
 template <typename... Ts>
@@ -209,18 +238,17 @@ using NormalVariant = impl::Variant<impl::Storage<Ts...>>;
  * @warning Your compiler must support C++26 `std::is_within_lifetime` for this to work in
  *          constant evaluated context. If your compiler has an intrinsic that can be used to
  *          implement `is_within_lifetime`, it will be used.
- * 
+ *
  * @tparam Ts Alternative types
  */
 template <typename... Ts>
 using InvertedVariant = impl::Variant<impl::InvertedStorage<Ts...>>;
 
-
 /**
  * @brief If the compiler supports `std::is_within_lifetime` or has an intrinsic
  *        that can be used to implement this, this type will use the inverted
  *        storage strategy to reduce padding as much as possible.
- * 
+ *
  * @tparam Ts Alternative types
  */
 template <typename... Ts>
@@ -229,7 +257,7 @@ using Variant =
 
 /**
  * @brief Same as slo::Variant. Provided for compatibility with `std::variant`.
- * 
+ *
  * @tparam Ts Alternative types
  */
 template <typename... Ts>

@@ -15,9 +15,9 @@ template <typename... Ts>
 class Storage {
   // discriminated union
 public:
-  using alternatives               = util::TypeList<Ts...>;
-  using index_type                 = alternatives::index_type;
-  constexpr static index_type npos = static_cast<index_type>(~0U);
+  using alternatives                              = util::TypeList<Ts...>;
+  using index_type                                = alternatives::index_type;
+  constexpr static index_type npos                = static_cast<index_type>(~0U);
   constexpr static bool is_trivially_destructible = (std::is_trivially_destructible_v<Ts> && ...);
 
 private:
@@ -42,29 +42,13 @@ public:
       : value(idx, std::forward<Args>(args)...)
       , tag(Idx) {}
 
-  constexpr Storage() = default;
+  constexpr Storage()                          = default;
+  constexpr Storage(Storage const& other)      = default;
+  constexpr Storage(Storage&& other) noexcept  = default;
+  Storage& operator=(Storage const& other)     = default;
+  Storage& operator=(Storage&& other) noexcept = default;
 
-  constexpr Storage(Storage const& other) {
-    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-  }
-
-  constexpr Storage(Storage&& other) noexcept {
-    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-  }
-
-  Storage& operator=(Storage const& other) {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-    }
-    return *this;
-  }
-  Storage& operator=(Storage&& other) noexcept {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-    }
-    return *this;
-  }
-
+  constexpr ~Storage() requires is_trivially_destructible = default;
   constexpr ~Storage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
@@ -81,11 +65,6 @@ public:
     reset();
     std::construct_at(&value, std::in_place_index<Idx>, std::forward<Args>(args)...);
     tag = Idx;
-  }
-
-  template <typename T, typename... Args>
-  constexpr void emplace(Args&&... args) {
-    emplace<alternatives::template get_index<T>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

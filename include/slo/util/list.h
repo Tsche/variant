@@ -28,6 +28,12 @@ struct TypeList {
   constexpr static std::size_t get_index = type_index<T, Ts...>;
 
   using index_type = std::conditional_t<(sizeof...(Ts) >= 255), unsigned short, unsigned char>;
+
+  template <template <typename> class Trait>
+  constexpr static bool all = (Trait<Ts>::value && ...);
+
+  template <template <typename> class Trait>
+  constexpr static bool any = (Trait<Ts>::value || ...);
 };
 
 }  // namespace slo::util

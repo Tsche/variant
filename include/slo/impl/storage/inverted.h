@@ -48,7 +48,7 @@ union InvertedStorage {
 
   using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-  TaggedWrapper<npos, error_type> dummy{};
+  TaggedWrapper<npos, error_type> dummy;
   struct Container {
     union_type value;
   } storage;
@@ -59,26 +59,13 @@ public:
       : storage{union_type(idx, std::forward<Args>(args)...)} {}
 
   constexpr InvertedStorage() : dummy() {}
-  constexpr ~InvertedStorage() { reset(); }
+  constexpr InvertedStorage(InvertedStorage const& other)  = default;
+  constexpr InvertedStorage(InvertedStorage&& other)       = default;
+  InvertedStorage& operator=(InvertedStorage const& other) = default;
+  InvertedStorage& operator=(InvertedStorage&& other)      = default;
 
-  constexpr InvertedStorage(InvertedStorage const& other) {
-    slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-  }
-  constexpr InvertedStorage(InvertedStorage&& other) noexcept {
-    slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-  }
-  InvertedStorage& operator=(InvertedStorage const& other) {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
-    }
-    return *this;
-  }
-  InvertedStorage& operator=(InvertedStorage&& other) noexcept {
-    if (this != std::addressof(other)) {
-      slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::move(obj)); }, std::move(other));
-    }
-    return *this;
-  }
+  constexpr ~InvertedStorage() requires is_trivially_destructible = default;
+  constexpr ~InvertedStorage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const {
     if consteval {
