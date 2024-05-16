@@ -17,18 +17,12 @@ union RecursiveUnion<Trivial, T> {
   constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
   constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
   constexpr ~RecursiveUnion()                                = default;
-  constexpr ~RecursiveUnion()
-    requires(!Trivial)
-  {}
+  constexpr ~RecursiveUnion() requires(!Trivial) {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args) : value{std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const
-    requires(has_index<T>)
-  {
-    return value.tag;
-  }
+  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T>) { return value.tag; }
 
   template <std::size_t N, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
@@ -42,8 +36,7 @@ union RecursiveUnion<Trivial, T> {
 };
 
 template <bool Trivial, typename T0, typename... Ts>
-  requires(sizeof...(Ts) != 0)
-union RecursiveUnion<Trivial, T0, Ts...> {
+requires(sizeof...(Ts) != 0) union RecursiveUnion<Trivial, T0, Ts...> {
   T0 alternative_0;
   RecursiveUnion<Trivial, Ts...> tail;
 
@@ -52,9 +45,7 @@ union RecursiveUnion<Trivial, T0, Ts...> {
   constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
   constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
   constexpr ~RecursiveUnion()                                = default;
-  constexpr ~RecursiveUnion()
-    requires(!Trivial)
-  {}
+  constexpr ~RecursiveUnion() requires(!Trivial) {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
@@ -64,9 +55,7 @@ union RecursiveUnion<Trivial, T0, Ts...> {
   constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
       : tail{std::in_place_index_t<N - 1>{}, std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const
-    requires(has_index<T0>)
-  {
+  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T0>) {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else {
@@ -89,8 +78,7 @@ union RecursiveUnion<Trivial, T0, Ts...> {
 };
 
 template <bool Trivial, typename T0, typename T1, typename... Ts>
-  requires(sizeof...(Ts) != 0)
-union RecursiveUnion<Trivial, T0, T1, Ts...> {
+requires(sizeof...(Ts) != 0) union RecursiveUnion<Trivial, T0, T1, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
   RecursiveUnion<Trivial, Ts...> tail;
@@ -100,9 +88,7 @@ union RecursiveUnion<Trivial, T0, T1, Ts...> {
   constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
   constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
   constexpr ~RecursiveUnion()                                = default;
-  constexpr ~RecursiveUnion()
-    requires(!Trivial)
-  {}
+  constexpr ~RecursiveUnion() requires(!Trivial) {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
@@ -116,9 +102,7 @@ union RecursiveUnion<Trivial, T0, T1, Ts...> {
   constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
       : tail{std::in_place_index_t<N - 2>{}, std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const
-    requires(has_index<T0> && has_index<T1>)
-  {
+  [[nodiscard]] constexpr std::size_t index() const requires(has_index<T0>&& has_index<T1>) {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else if (compat::is_within_lifetime(&alternative_1.tag)) {
@@ -149,8 +133,7 @@ union RecursiveUnion<Trivial, T0, T1, Ts...> {
 };
 
 template <bool Trivial, typename T0, typename T1, typename T2, typename T3, typename... Ts>
-  requires(sizeof...(Ts) != 0)
-union RecursiveUnion<Trivial, T0, T1, T2, T3, Ts...> {
+requires(sizeof...(Ts) != 0) union RecursiveUnion<Trivial, T0, T1, T2, T3, Ts...> {
   T0 alternative_0;
   T1 alternative_1;
   T2 alternative_2;
@@ -162,9 +145,7 @@ union RecursiveUnion<Trivial, T0, T1, T2, T3, Ts...> {
   constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
   constexpr RecursiveUnion& operator=(RecursiveUnion&&)      = default;
   constexpr ~RecursiveUnion()                                = default;
-  constexpr ~RecursiveUnion()
-    requires(!Trivial)
-  {}
+  constexpr ~RecursiveUnion() requires(!Trivial) {}
 
   template <typename... Args>
   constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args)
@@ -187,8 +168,7 @@ union RecursiveUnion<Trivial, T0, T1, T2, T3, Ts...> {
       : tail{std::in_place_index_t<N - 4>{}, std::forward<Args>(args)...} {}
 
   [[nodiscard]] constexpr std::size_t index() const
-    requires(has_index<T0> && has_index<T1> && has_index<T2> && has_index<T3>)
-  {
+      requires(has_index<T0>&& has_index<T1>&& has_index<T2>&& has_index<T3>) {
     if (compat::is_within_lifetime(&alternative_0.tag)) {
       return alternative_0.tag;
     } else if (compat::is_within_lifetime(&alternative_1.tag)) {
