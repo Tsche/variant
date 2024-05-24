@@ -14,4 +14,4 @@ sources = ["include", "benchmark"]
 output = "build"
 system_includes = ["include"]
 repeat_each = 5
-standard = "c++23"
+standard = "c++26"

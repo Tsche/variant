@@ -77,5 +77,6 @@ public:
   constexpr decltype(auto) get(this Self&& self) {
     return std::forward<Self>(self).value.template get<Idx>();
   }
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return tag == npos; }
 };
 }  // namespace slo::impl

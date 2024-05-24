@@ -2,8 +2,8 @@
 
 namespace slo {
 
-template <typename F, typename Variant>
-constexpr decltype(auto) visit(F&& visitor, Variant&& variant);
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variant);
 }
 
 namespace slo::impl {

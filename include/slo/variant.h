@@ -11,6 +11,8 @@
 #include "impl/storage/normal.h"
 #include "impl/storage/member_ptr.h"
 
+#include "impl/visit/fptr_array.h"
+#include "slo/impl/visit/visit.h"
 #if USING(SLO_MACRO_VISIT)
 #  include "impl/visit/macro.h"
 #else
@@ -46,21 +48,23 @@ constexpr decltype(auto) get(V&& variant_) {
   return std::forward<V>(variant_).template get<T>();
 }
 
-template <typename F, typename V>
-constexpr decltype(auto) visit(F&& visitor, V&& variant) {
-#if USING(SLO_MACRO_VISIT)
-  return impl::macro::visit(std::forward<F>(visitor), std::forward<V>(variant));
-#else
-  return impl::variadic::visit(std::forward<F>(visitor), std::forward<V>(variant),
-                               std::make_index_sequence<variant_size_v<std::remove_reference_t<V>>>{});
-#endif
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
+  constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
+  constexpr int strategy          = max_index > 256          ? -1
+                                    : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
+                                                               : max_index <= 16 ? 2
+                                                               : max_index <= 64 ? 3
+                                                                                 : 4
+                                                             : 0;
+  return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
 }
 
 static constexpr std::size_t variant_npos = -1ULL;
 
 namespace impl {
 template <typename Source, typename Dest>
-concept allowed_conversion = requires { std::type_identity_t<Dest[]>{std::declval<Source>()}; };
+concept allowed_conversion = requires(Source obj) { std::type_identity_t<Dest[]>{std::move(obj)}; };
 
 template <std::size_t Idx, typename T>
 struct Build_FUN {
@@ -112,29 +116,29 @@ struct StorageChoice<false, T, F> {
 template <has_alternatives Storage>
 class Variant {
 public:
-  using alternatives = Storage::alternatives;
+  using alternatives         = Storage::alternatives;
   static constexpr auto npos = Storage::npos;
   Storage storage;
 
   // default constructor, only if alternative #0 is default constructible
-  constexpr Variant() 
-    noexcept(std::is_nothrow_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/5
-    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)          // [variant.ctor]/2
-      : Variant(std::in_place_index<0>) {}                                                // [variant.ctor]/3
+  constexpr Variant() noexcept(
+      std::is_nothrow_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/5
+    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)   // [variant.ctor]/2
+      : Variant(std::in_place_index<0>) {}                                         // [variant.ctor]/3
 
   constexpr Variant(Variant const& other) = default;
-  constexpr Variant(Variant const& other)
-    noexcept(alternatives::template all<std::is_nothrow_copy_constructible>)  // [variant.ctor]/8
-    requires(!std::is_trivially_destructible_v<Storage> 
-             && alternatives::template all<std::is_copy_constructible>)       // [variant.ctor]/9
+  constexpr Variant(Variant const& other) noexcept(
+      alternatives::template all<std::is_nothrow_copy_constructible>)  // [variant.ctor]/8
+    requires(!std::is_trivially_destructible_v<Storage> &&
+             alternatives::template all<std::is_copy_constructible>)  // [variant.ctor]/9
   {
     slo::visit([this]<typename T>(T const& obj) { this->emplace<T>(obj); }, other);
   }
 
   constexpr Variant(Variant&& other) = default;
-  constexpr Variant(Variant&& other)
-    noexcept(alternatives::template all<std::is_nothrow_move_constructible>)  // [variant.ctor]/12
-    requires(!std::is_trivially_destructible_v<Storage>                       // [variant.ctor]/13
+  constexpr Variant(Variant&& other) noexcept(
+      alternatives::template all<std::is_nothrow_move_constructible>)  // [variant.ctor]/12
+    requires(!std::is_trivially_destructible_v<Storage>                // [variant.ctor]/13
              && alternatives::template all<std::is_move_constructible>)
   {
     slo::visit([this]<typename T>(T&& obj) { this->emplace<T>(std::forward<T>(obj)); }, std::move(other));
@@ -142,34 +146,37 @@ public:
 
   // converting constructor
   template <typename T>
-    requires(alternatives::size != 0                                                // [variant.ctor]/15.1
-             && !std::same_as<std::remove_cvref_t<T>, Variant>                      // [variant.ctor]/15.2
-             && !is_in_place<std::remove_cvref_t<T>>                                // [variant.ctor]/15.3
-             && selected_index<T, alternatives> != variant_npos)                    // [variant.ctor]/15.4, [variant.ctor]/15.5
-  constexpr explicit Variant(T&& obj)
-    noexcept(std::is_nothrow_constructible_v<                                       // [variant.ctor]/18
-      typename util::pack::get<selected_index<T, alternatives>, alternatives>, T>) 
+    requires(alternatives::size != 0                              // [variant.ctor]/15.1
+             && !std::same_as<std::remove_cvref_t<T>, Variant>    // [variant.ctor]/15.2
+             && !is_in_place<std::remove_cvref_t<T>>              // [variant.ctor]/15.3
+             && selected_index<T, alternatives> != variant_npos)  // [variant.ctor]/15.4, [variant.ctor]/15.5
+  constexpr explicit Variant(T&& obj) noexcept(std::is_nothrow_constructible_v<  // [variant.ctor]/18
+                                               typename util::pack::get<selected_index<T, alternatives>, alternatives>,
+                                               T>)
       : storage(std::in_place_index<selected_index<T, alternatives>>, std::forward<T>(obj)) {}
 
   // in place constructors
   template <typename T, typename... Args>
-  explicit Variant(std::in_place_type_t<T>, Args&&... args)
-    noexcept(std::is_nothrow_constructible_v<T, Args...>)  // [variant.ctor]/23
+  explicit Variant(std::in_place_type_t<T>,
+                   Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)  // [variant.ctor]/23
       : storage(std::in_place_index<alternatives::template get_index<T>>, std::forward<Args>(args)...) {}
 
   template <typename T, typename U, typename... Args>
-  explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args)
-    noexcept(std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>) // [variant.ctor]/28
+  explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args) noexcept(
+      std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)  // [variant.ctor]/28
       : storage(std::in_place_index<alternatives::template get_index<T>>, init_list, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) 
-    noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, Args...>) // [variant.ctor]/33
+  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) noexcept(
+      std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, Args...>)  // [variant.ctor]/33
       : storage(idx, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename U, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, std::initializer_list<U> init_list, Args&&... args)
-  noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, std::initializer_list<U>&, Args...>) // not standardized
+  explicit Variant(std::in_place_index_t<Idx> idx,
+                   std::initializer_list<U> init_list,
+                   Args&&... args) noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>,
+                                                                            std::initializer_list<U>&,
+                                                                            Args...>)  // not standardized
       : storage(idx, init_list, std::forward<Args>(args)...) {}
 
   // TODO inplace + initializer list
@@ -281,9 +288,9 @@ using InvertedVariant = impl::Variant<impl::InvertedStorage<Ts...>>;
  */
 template <typename... Ts>
 using Variant =
-    impl::Variant<typename impl::StorageChoice<(HAS_IS_WITHIN_LIFETIME && (std::is_standard_layout_v<Ts> && ...)), 
-                                                impl::InvertedStorage, 
-                                                impl::Storage>::template type<Ts...>>;
+    impl::Variant<typename impl::StorageChoice<(HAS_IS_WITHIN_LIFETIME && (std::is_standard_layout_v<Ts> && ...)),
+                                               impl::InvertedStorage,
+                                               impl::Storage>::template type<Ts...>>;
 
 /**
  * @brief Same as slo::Variant. Provided for compatibility with `std::variant`.

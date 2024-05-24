@@ -34,7 +34,7 @@ def generate_trace(file, output, defines: dict[str, Any], config: Config):
     standard = f"-std={config.standard}" if config.standard else '-std=c++23'
     profile_flags = ['-ftime-trace', '-c']
 
-    taskset_prefix = ["taskset", "--cpu-list", "0"]
+    taskset_prefix = ["taskset", "--cpu-list", "23"]
     call = [*taskset_prefix, os.environ.get("CXX") or "clang++", str(file), '-o', str(output), *
             defines, *includes, standard, *profile_flags, *config.options]
 
@@ -93,6 +93,7 @@ class Analyze:
             ranges = dict(self.get_ranges(features))
             if not ranges:
                 yield name, features
+                continue
 
             for feature_set in dict_product(ranges):
                 new_name = f"{name}_{'_'.join(f'{feature}{value}' for feature, value in feature_set.items())}"

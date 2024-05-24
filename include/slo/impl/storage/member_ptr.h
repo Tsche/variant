@@ -9,12 +9,11 @@
 #include <slo/util/concepts.h>
 #include "common.h"
 
-
-//TODO implement proper feature flags
+// TODO implement proper feature flags
 #if USING(SLO_HIDE_IN_PADDING)
-#define SLO_UNION_ATTR [[no_unique_address]]
+#  define SLO_UNION_ATTR [[no_unique_address]]
 #else
-#define SLO_UNION_ATTR
+#  define SLO_UNION_ATTR
 #endif
 
 namespace slo::impl {
@@ -41,32 +40,20 @@ struct StorageProxy {
   constexpr static index_type npos = static_cast<index_type>(~0U);
 
 private:
-  union Union {
-    error_type dummy;
-    SLO_UNION_ATTR union_type value;
-    
-    constexpr Union() : dummy{} {}
-    constexpr Union(Union const& other)      = default;
-    constexpr Union(Union&& other) noexcept  = default;
-    Union& operator=(Union const& other)     = default;
-    Union& operator=(Union&& other) noexcept = default;
+// With SLO_HIDE_IN_PADDING is enabled, the tag _may_ be hidden in padding.
+// Unfortunately certain operations (such as move construction)  _may_ clobber
+// tail padding, hence we must assume the tag is lost afterwards. This shouldn't
+// be a problem since we set the tag after construction anyway.
 
-    constexpr ~Union()
-      requires(alternatives::template all<std::is_trivially_destructible>)
-    = default;
-    constexpr ~Union() {}
-  };
+// It's possibly problematic if a constructor throws - the variant might end up with
+// an overwritten tag that suggests it is still valid.
 
-  // With SLO_HIDE_IN_PADDING is enabled, the tag _may_ be hidden in padding. 
-  // Unfortunately certain operations (such as move construction)  _may_ clobber 
-  // tail padding, hence we must assume the tag is lost afterwards. This shouldn't 
-  // be a problem since we set the tag after construction anyway.
+// See https://github.com/llvm/llvm-project/issues/60711
+#if USING(SLO_HIDE_IN_PADDING)
+  [[no_unique_address]]
+#endif
+  union_type storage;
 
-  // It's possibly problematic if a constructor throws - the variant might end up with
-  // an overwritten tag that suggests it is still valid.
-  
-  // See https://github.com/llvm/llvm-project/issues/60711
-  SLO_UNION_ATTR Union storage;
   index_type tag{npos};
 
   template <std::size_t Idx>
@@ -75,7 +62,7 @@ private:
 public:
   template <std::size_t Idx, typename... Args>
   constexpr explicit StorageProxy(std::in_place_index_t<Idx>, Args&&... args) {
-    std::construct_at(std::addressof(storage.value.*member<Idx>), std::forward<Args>(args)...);
+    std::construct_at(std::addressof(storage.*member<Idx>), std::forward<Args>(args)...);
     tag = Idx;
   }
 
@@ -102,7 +89,7 @@ public:
   template <std::size_t Idx, typename... Args>
   constexpr void emplace(Args&&... args) {
     reset();
-    std::construct_at(std::addressof(storage.value.*member<Idx>), std::forward<Args>(args)...);
+    std::construct_at(std::addressof(storage.*member<Idx>), std::forward<Args>(args)...);
     tag = Idx;
   }
 
@@ -113,8 +100,9 @@ public:
 
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return std::forward<Self>(self).storage.value.*member<Idx>;
+    return std::forward<Self>(self).storage.*member<Idx>;
   }
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return tag == npos; }
 };
 }  // namespace detail
 

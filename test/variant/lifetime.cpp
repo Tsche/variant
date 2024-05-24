@@ -25,6 +25,9 @@ union Bare {
   Lifetime<2> alt_2;
   Lifetime<3> alt_3;
   Lifetime<4> alt_4;
+
+  Bare() {}
+  ~Bare() {}
 };
 
 using test_types = testing::Types<test_type<std::variant, 5>,           // control

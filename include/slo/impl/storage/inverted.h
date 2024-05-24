@@ -124,6 +124,8 @@ public:
   constexpr decltype(auto) get(this Self&& self) {
     return std::forward<Self>(self).storage.value.template get<Idx>();
   }
+
+  [[nodiscard]] constexpr bool valueless_by_exception() const noexcept { return index() == npos; }
 };
 
 }  // namespace slo::impl

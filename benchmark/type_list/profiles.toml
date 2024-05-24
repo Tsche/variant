@@ -1,0 +1,62 @@
+# source = "get_unique.cpp"
+
+# [query]
+# "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
+# "total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+
+# [profile.Inheritance]
+# INHERITANCE = true
+# COUNT = 10
+
+# [profile.Array]
+# ARRAY = true
+# COUNT = 10
+
+# [profile.Fold]
+# FOLD = true
+# COUNT = 10
+
+source = "get.cpp"
+[query]
+# "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
+"total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+
+[profile.Recursive]
+RECURSIVE = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.Inheritance]
+INHERITANCE1 = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.Inheritance2]
+INHERITANCE2 = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.Voidptr]
+VOIDPTR = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.Ignored]
+IGNORED = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.PAGING]
+PAGING = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.BUILTIN]
+BUILTIN = true
+COUNT.min = 1
+COUNT.max = 10
+
+[profile.CPP26]
+CPP26 = true
+COUNT.min = 1
+COUNT.max = 10
