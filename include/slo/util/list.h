@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "slo/util/pack.h"
+#include <slo/util/pack.h>
 
 namespace slo::util {
 template <typename... Ts>

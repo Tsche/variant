@@ -15,3 +15,7 @@ output = "build"
 system_includes = ["include"]
 repeat_each = 5
 standard = "c++26"
+
+[amalgamate]
+root = "slo/variant.h"
+filename = "amalgamated.h"

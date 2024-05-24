@@ -12,11 +12,11 @@
 #include "impl/storage/member_ptr.h"
 
 #include "impl/visit/fptr_array.h"
-#include "slo/impl/visit/visit.h"
+#include "impl/visit/visit.h"
 #if USING(SLO_MACRO_VISIT)
-#  include "impl/visit/macro.h"
+#include "impl/visit/macro.h"
 #else
-#  include "impl/visit/variadic.h"
+#include "impl/visit/variadic.h"
 #endif
 
 #include "util/compat.h"
@@ -50,17 +50,21 @@ constexpr decltype(auto) get(V&& variant_) {
 
 template <typename F, typename... Vs>
 constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
-  constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
-  constexpr int strategy          = max_index > 256          ? -1
-                                    : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
-                                                               : max_index <= 16 ? 2
-                                                               : max_index <= 64 ? 3
-                                                                                 : 4
-                                                             : 0;
-  return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
+  if constexpr (sizeof...(Vs) == 0){
+    return std::forward<F>(visitor)();
+  } else {
+    constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
+    constexpr int strategy          = max_index > 256          ? -1
+                                      : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
+                                                                : max_index <= 16 ? 2
+                                                                : max_index <= 64 ? 3
+                                                                                  : 4
+                                                              : 0;
+    return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
+  }
 }
 
-static constexpr std::size_t variant_npos = -1ULL;
+inline constexpr std::size_t variant_npos = -1ULL;
 
 namespace impl {
 template <typename Source, typename Dest>
