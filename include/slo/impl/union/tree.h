@@ -12,6 +12,9 @@ namespace detail {
 template <bool Trivial, typename... Ts>
 union TreeUnion;
 
+template <bool Trivial>
+union TreeUnion<Trivial>{};
+
 template <bool Trivial, typename... Ts, typename... Us>
 union TreeUnion<Trivial, TreeUnion<Trivial, Ts...>, TreeUnion<Trivial, Us...>> {
   constexpr static std::size_t size = TreeUnion<Trivial, Ts...>::size + TreeUnion<Trivial, Us...>::size;
@@ -180,6 +183,12 @@ union TreeUnion<Trivial, T> {
 
 template <bool, typename, typename>
 struct ToCBTImpl;
+
+template <bool Trivial>
+struct ToCBTImpl<Trivial, util::TypeList<>, util::TypeList<>> {
+  using type = TreeUnion<Trivial>;
+};
+
 
 template <bool Trivial, typename T>
 struct ToCBTImpl<Trivial, util::TypeList<T>, util::TypeList<>> {

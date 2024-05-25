@@ -18,7 +18,7 @@ void check_size() {
 }
 
 TEST(Helpers, variant_size) {
-  // check_size<slo::variant<>, 0>();
+  check_size<slo::variant<>, 0>();
   check_size<slo::variant<int>, 1>();
   check_size<slo::variant<int, char, void*>, 3>();
 }

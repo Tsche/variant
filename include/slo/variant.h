@@ -124,15 +124,16 @@ public:
   static constexpr auto npos = Storage::npos;
   Storage storage;
 
-  static_assert(alternatives::size > 0, "Variant must have at least one alternative");
+  static_assert(alternatives::size > 0, "Variant must contain at least one alternative");
   static_assert(!alternatives::template any<std::is_reference>, "Variant must not have reference alternatives");
   static_assert(!alternatives::template any<std::is_void>, "Variant must not have void alternatives");
 
   // default constructor, only if alternative #0 is default constructible
   constexpr Variant() noexcept(
       std::is_nothrow_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/5
-    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)   // [variant.ctor]/2
-      : Variant(std::in_place_index<0>) {}                                         // [variant.ctor]/3
+    requires(alternatives::size > 0 &&
+             std::is_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/2
+      : Variant(std::in_place_index<0>) {}                                        // [variant.ctor]/3
 
   constexpr Variant(Variant const& other) = default;
   constexpr Variant(Variant const& other) noexcept(
@@ -271,15 +272,28 @@ struct variant_alternative<Idx, T const volatile> {
   using type = util::type_at<Idx, typename T::alternatives> const volatile;
 };
 
-template <impl::has_alternatives T>
-struct variant_size<T> {
-  static constexpr std::size_t value = T::alternatives::size;
+template <typename T>
+struct variant_size : std::integral_constant<std::size_t, std::remove_cv_t<T>::alternatives::size> {
+  // retrieve size from alternatives
+
+  // unfortunately constraining T causes this to error early
+  static_assert(impl::has_alternatives<std::remove_cv_t<T>>,
+                "variant_size must be used on slo::variant or its underlying storage.");
 };
 
-template <impl::has_alternatives T>
-struct variant_size<T const> {
-  static constexpr std::size_t value = T::alternatives::size;
-};
+// workaround for variant_size<slo::Variant<>> to compile
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>>> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> const> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> volatile> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> const volatile>
+    : std::integral_constant<std::size_t, sizeof...(Ts)> {};
 
 /**
  * @brief This implementation of variant
