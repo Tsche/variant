@@ -9,13 +9,6 @@
 #include <slo/util/concepts.h>
 #include "common.h"
 
-// TODO implement proper feature flags
-#if USING(SLO_HIDE_IN_PADDING)
-#  define SLO_UNION_ATTR [[no_unique_address]]
-#else
-#  define SLO_UNION_ATTR
-#endif
-
 namespace slo::impl {
 namespace detail {
 template <auto>
@@ -68,8 +61,8 @@ public:
 
   constexpr StorageProxy(StorageProxy const& other)      = default;
   constexpr StorageProxy(StorageProxy&& other) noexcept  = default;
-  StorageProxy& operator=(StorageProxy const& other)     = default;
-  StorageProxy& operator=(StorageProxy&& other) noexcept = default;
+  constexpr StorageProxy& operator=(StorageProxy const& other)     = default;
+  constexpr StorageProxy& operator=(StorageProxy&& other) noexcept = default;
 
   constexpr StorageProxy() {}
   constexpr ~StorageProxy()
@@ -109,5 +102,3 @@ public:
 template <auto... Ptrs>
 using StorageProxy = detail::StorageProxy<detail::MemberPtr<Ptrs>...>;
 }  // namespace slo::impl
-
-#undef SLO_UNION_ATTR

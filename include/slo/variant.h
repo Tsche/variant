@@ -38,32 +38,6 @@ using variant_alternative_t = typename variant_alternative<Idx, std::remove_refe
 template <typename T>
 inline constexpr std::size_t variant_size_v = slo::variant_size<T>::value;
 
-template <std::size_t Idx, impl::has_get V>
-constexpr decltype(auto) get(V&& variant_) {
-  return std::forward<V>(variant_).template get<Idx>();
-}
-
-template <typename T, impl::has_get V>
-constexpr decltype(auto) get(V&& variant_) {
-  return std::forward<V>(variant_).template get<T>();
-}
-
-template <typename F, typename... Vs>
-constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
-  if constexpr (sizeof...(Vs) == 0) {
-    return std::forward<F>(visitor)();
-  } else {
-    constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
-    constexpr int strategy          = max_index > 256          ? -1
-                                      : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
-                                                                 : max_index <= 16 ? 2
-                                                                 : max_index <= 64 ? 3
-                                                                                   : 4
-                                                               : 0;
-    return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
-  }
-}
-
 inline constexpr std::size_t variant_npos = -1ULL;
 
 namespace impl {
@@ -166,22 +140,22 @@ public:
 
   // in place constructors
   template <typename T, typename... Args>
-  explicit Variant(std::in_place_type_t<T>,
+  constexpr explicit Variant(std::in_place_type_t<T>,
                    Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)  // [variant.ctor]/23
       : storage(std::in_place_index<util::index_of<T, alternatives>>, std::forward<Args>(args)...) {}
 
   template <typename T, typename U, typename... Args>
-  explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args) noexcept(
+  constexpr explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args) noexcept(
       std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)  // [variant.ctor]/28
       : storage(std::in_place_index<util::index_of<T, alternatives>>, init_list, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) noexcept(
+  constexpr explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) noexcept(
       std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>, Args...>)  // [variant.ctor]/33
       : storage(idx, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename U, typename... Args>
-  explicit Variant(std::in_place_index_t<Idx> idx,
+  constexpr explicit Variant(std::in_place_index_t<Idx> idx,
                    std::initializer_list<U> init_list,
                    Args&&... args) noexcept(std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>,
                                                                             std::initializer_list<U>&,
@@ -193,7 +167,7 @@ public:
   constexpr Variant& operator=(Variant const& other) = default;
   constexpr Variant& operator=(Variant&& other)      = default;
 
-  Variant& operator=(Variant const& other)
+  constexpr Variant& operator=(Variant const& other)
     requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_copy_assignable>)
   {
     if (this != std::addressof(other)) {
@@ -202,7 +176,7 @@ public:
     return *this;
   }
 
-  Variant& operator=(Variant&& other) noexcept
+  constexpr Variant& operator=(Variant&& other) noexcept
     requires(!std::is_trivially_destructible_v<Storage> && alternatives::template all<std::is_move_assignable>)
   {
     if (this != std::addressof(other)) {
@@ -248,6 +222,32 @@ public:
 };
 }  // namespace impl
 
+//? [variant.helper], variant helper classes
+
+template <typename T>
+struct variant_size : std::integral_constant<std::size_t, std::remove_cv_t<T>::alternatives::size> {
+  // Retrieve size from alternatives. 
+  // Note that this primary template cannot be undefined as the standard mandates.
+
+  // Unfortunately constraining T causes this to error early
+  static_assert(impl::has_alternatives<std::remove_cv_t<T>>,
+                "variant_size must be used on slo::variant or its underlying storage.");
+};
+
+// Workaround for variant_size<slo::Variant<>> to compile
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>>> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> const> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> volatile> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
+template <template <typename...> class Storage, typename... Ts>
+struct variant_size<impl::Variant<Storage<Ts...>> const volatile>
+    : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+
 template <std::size_t Idx, impl::has_alternatives T>
 struct variant_alternative<Idx, T> {
   static_assert(Idx < T::alternatives::size, "variant_alternative index out of range");
@@ -272,28 +272,46 @@ struct variant_alternative<Idx, T const volatile> {
   using type = util::type_at<Idx, typename T::alternatives> const volatile;
 };
 
-template <typename T>
-struct variant_size : std::integral_constant<std::size_t, std::remove_cv_t<T>::alternatives::size> {
-  // retrieve size from alternatives
 
-  // unfortunately constraining T causes this to error early
-  static_assert(impl::has_alternatives<std::remove_cv_t<T>>,
-                "variant_size must be used on slo::variant or its underlying storage.");
-};
 
-// workaround for variant_size<slo::Variant<>> to compile
-template <template <typename...> class Storage, typename... Ts>
-struct variant_size<impl::Variant<Storage<Ts...>>> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+//? [variant.get], value access
 
-template <template <typename...> class Storage, typename... Ts>
-struct variant_size<impl::Variant<Storage<Ts...>> const> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+template <std::size_t Idx, template<typename...> class Storage, typename... Types>
+constexpr bool holds_alternative(impl::Variant<Storage<Types...>> const& obj) noexcept {
+  // this one isn't standardized, but it's useful anyway
+  return obj.index() == Idx;
+}
 
-template <template <typename...> class Storage, typename... Ts>
-struct variant_size<impl::Variant<Storage<Ts...>> volatile> : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+template <class T, template<typename...> class Storage, typename... Types>
+constexpr bool holds_alternative(impl::Variant<Storage<Types...>> const& obj) noexcept {
+  return holds_alternative<util::index_of<T, typename impl::Variant<Storage<Types...>>::alternatives>>(obj);
+}
 
-template <template <typename...> class Storage, typename... Ts>
-struct variant_size<impl::Variant<Storage<Ts...>> const volatile>
-    : std::integral_constant<std::size_t, sizeof...(Ts)> {};
+template <std::size_t Idx, impl::has_get V>
+constexpr decltype(auto) get(V&& variant_) {
+  return std::forward<V>(variant_).template get<Idx>();
+}
+
+template <typename T, impl::has_get V>
+constexpr decltype(auto) get(V&& variant_) {
+  return std::forward<V>(variant_).template get<T>();
+}
+
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
+  if constexpr (sizeof...(Vs) == 0) {
+    return std::forward<F>(visitor)();
+  } else {
+    constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
+    constexpr int strategy          = max_index > 256          ? -1
+                                      : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
+                                                                 : max_index <= 16 ? 2
+                                                                 : max_index <= 64 ? 3
+                                                                                   : 4
+                                                               : 0;
+    return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
+  }
+}
 
 /**
  * @brief This implementation of variant

@@ -28,11 +28,11 @@ public:
 
 private:
   template <typename... Us>
-  static consteval auto generate_union() -> RecursiveUnion<is_trivially_destructible, Us...>;
+  static constexpr auto generate_union() -> RecursiveUnion<is_trivially_destructible, Us...>;
 
   template <typename... Us>
     requires(sizeof...(Us) >= SLO_TREE_THRESHOLD)
-  static consteval auto generate_union() -> TreeUnion<is_trivially_destructible, Ts...>;
+  static constexpr auto generate_union() -> TreeUnion<is_trivially_destructible, Ts...>;
 
   using union_type = decltype(generate_union<Ts...>());
   union {
@@ -51,8 +51,8 @@ public:
   constexpr Storage()                          = default;
   constexpr Storage(Storage const& other)      = default;
   constexpr Storage(Storage&& other) noexcept  = default;
-  Storage& operator=(Storage const& other)     = default;
-  Storage& operator=(Storage&& other) noexcept = default;
+  constexpr Storage& operator=(Storage const& other)     = default;
+  constexpr Storage& operator=(Storage&& other) noexcept = default;
 
   constexpr ~Storage() requires is_trivially_destructible = default;
   constexpr ~Storage() { reset(); }

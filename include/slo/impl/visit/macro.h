@@ -47,18 +47,4 @@ SLO_GENERATE_STRATEGY(4, 256);  // 4^4 potential states
 #undef SLO_VISIT_CASE
 #undef SLO_VISIT_STAMP
 #undef SLO_GENERATE_STRATEGY
-
-// template <typename F, typename V>
-// constexpr decltype(auto) visit(F&& visitor, V&& variant) {
-//   constexpr auto size = variant_size<std::remove_cvref_t<V>>::value;
-//   // clang-format off
-//   constexpr int strategy = size <= 4     ? 1
-//                            : size <= 16  ? 2
-//                            : size <= 64  ? 3
-//                            : size <= 256 ? 4
-//                                          : -1;
-//   // clang-format on
-
-//   return VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<V>(variant));
-// }
 }  // namespace slo::impl

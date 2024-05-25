@@ -87,8 +87,8 @@ public:
   constexpr InvertedStorage() : dummy() {}
   constexpr InvertedStorage(InvertedStorage const& other)  = default;
   constexpr InvertedStorage(InvertedStorage&& other)       = default;
-  InvertedStorage& operator=(InvertedStorage const& other) = default;
-  InvertedStorage& operator=(InvertedStorage&& other)      = default;
+  constexpr InvertedStorage& operator=(InvertedStorage const& other) = default;
+  constexpr InvertedStorage& operator=(InvertedStorage&& other)      = default;
 
   constexpr ~InvertedStorage() requires is_trivially_destructible = default;
   constexpr ~InvertedStorage() { reset(); }
