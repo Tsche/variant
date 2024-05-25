@@ -20,7 +20,7 @@
 #endif
 
 #include "util/compat.h"
-#include "util/pack.h"
+#include "util/list.h"
 
 namespace slo {
 
@@ -155,7 +155,7 @@ public:
              && !is_in_place<std::remove_cvref_t<T>>              // [variant.ctor]/15.3
              && selected_index<T, alternatives> != variant_npos)  // [variant.ctor]/15.4, [variant.ctor]/15.5
   constexpr explicit Variant(T&& obj) noexcept(std::is_nothrow_constructible_v<  // [variant.ctor]/18
-                                               typename util::pack::get<selected_index<T, alternatives>, alternatives>,
+                                               typename util::type_at<selected_index<T, alternatives>, alternatives>,
                                                T>)
       : storage(std::in_place_index<selected_index<T, alternatives>>, std::forward<T>(obj)) {}
 
@@ -163,22 +163,22 @@ public:
   template <typename T, typename... Args>
   explicit Variant(std::in_place_type_t<T>,
                    Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)  // [variant.ctor]/23
-      : storage(std::in_place_index<alternatives::template get_index<T>>, std::forward<Args>(args)...) {}
+      : storage(std::in_place_index<util::index_of<T, alternatives>>, std::forward<Args>(args)...) {}
 
   template <typename T, typename U, typename... Args>
   explicit Variant(std::in_place_type_t<T>, std::initializer_list<U> init_list, Args&&... args) noexcept(
       std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)  // [variant.ctor]/28
-      : storage(std::in_place_index<alternatives::template get_index<T>>, init_list, std::forward<Args>(args)...) {}
+      : storage(std::in_place_index<util::index_of<T, alternatives>>, init_list, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename... Args>
   explicit Variant(std::in_place_index_t<Idx> idx, Args&&... args) noexcept(
-      std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>, Args...>)  // [variant.ctor]/33
+      std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>, Args...>)  // [variant.ctor]/33
       : storage(idx, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename U, typename... Args>
   explicit Variant(std::in_place_index_t<Idx> idx,
                    std::initializer_list<U> init_list,
-                   Args&&... args) noexcept(std::is_nothrow_constructible_v<util::pack::get<Idx, alternatives>,
+                   Args&&... args) noexcept(std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>,
                                                                             std::initializer_list<U>&,
                                                                             Args...>)  // not standardized
       : storage(idx, init_list, std::forward<Args>(args)...) {}
@@ -210,7 +210,7 @@ public:
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
-    storage.template emplace<alternatives::template get_index<T>>(std::forward<Args>(args)...);
+    storage.template emplace<util::index_of<T, alternatives>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename... Args>
@@ -225,7 +225,7 @@ public:
 
   template <typename T, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return slo::get<alternatives::template get_index<T>>(std::forward<Self>(self).storage);
+    return slo::get<util::index_of<T, alternatives>>(std::forward<Self>(self).storage);
   }
 
   template <typename Self, typename V>
@@ -245,12 +245,12 @@ public:
 
 template <std::size_t Idx, impl::has_alternatives T>
 struct variant_alternative<Idx, T> {
-  using type = util::pack::get<Idx, typename T::alternatives>;
+  using type = util::type_at<Idx, typename T::alternatives>;
 };
 
 template <std::size_t Idx, impl::has_alternatives T>
 struct variant_alternative<Idx, T const> {
-  using type = util::pack::get<Idx, typename T::alternatives>;
+  using type = util::type_at<Idx, typename T::alternatives>;
 };
 
 template <impl::has_alternatives T>

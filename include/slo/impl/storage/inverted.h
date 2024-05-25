@@ -117,7 +117,7 @@ public:
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
-    emplace<alternatives::template get_index<T>>(std::forward<Args>(args)...);
+    emplace<util::index_of<T, alternatives>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

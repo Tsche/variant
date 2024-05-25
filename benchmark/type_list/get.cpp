@@ -347,6 +347,38 @@ template <std::size_t Idx, typename... Ts>
 using get = GetImpl<Idx, List<Ts...>>::type;
 }  // namespace paging
 
+
+namespace nested {
+namespace detail {
+template <std::size_t Idx, typename T>
+struct Tagged {
+  using type                         = T;
+  constexpr static std::size_t value = Idx;
+};
+
+template <std::size_t Idx, typename T>
+constexpr T get_type_impl(Tagged<Idx, T>){
+    static_assert(false, "get_type_impl not allowed in an evaluated context");
+}
+}  // namespace detail
+
+template <typename... Ts>
+struct TypeList2 {
+  template <typename = std::index_sequence_for<Ts...>>
+  struct GetHelper;
+
+  template <std::size_t... Idx>
+  struct GetHelper<std::index_sequence<Idx...>> : detail::Tagged<Idx, Ts>... {};
+
+  template <std::size_t Idx>
+  using type_at = decltype(get_type_impl<Idx>(GetHelper{}));
+};
+
+template <std::size_t Idx, typename... Ts>
+using get = typename TypeList2<Ts...>::template type_at<Idx>;
+}
+
+
 #if __has_builtin(__type_pack_element)
 namespace builtin {
 template <std::size_t Idx, typename... Ts>
@@ -374,6 +406,8 @@ void run(std::index_sequence<Idx...>) {
   using voidptr::get;
 #elif defined(IGNORED)
   using ignored::get;
+#elif defined(NESTED)
+  using nested::get;
 #elif defined(PAGING)
   using paging::get;
 #elif defined(BUILTIN)
@@ -387,7 +421,7 @@ void run(std::index_sequence<Idx...>) {
 // #  endif
   using cpp26::get;
 #else
-#  error "Define one of RECURSIVE, INHERITANCE1, INHERITANCE2, VOIDPTR, PAGING, BUILTIN, CPP26."
+#  error "Define one of RECURSIVE, INHERITANCE1, INHERITANCE2, VOIDPTR, IGNORED, NESTED, PAGING, BUILTIN or CPP26."
 #endif
   static_assert((std::same_as<get<Idx, Dummy<Idx>...>, Dummy<Idx>> && ...));
 }

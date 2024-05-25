@@ -33,7 +33,7 @@ struct StorageProxy {
                 "All member pointers must refer to subobjects of the same type.");
 
   using alternatives = util::TypeList<typename Ptrs::type...>;
-  using union_type   = util::TypeList<typename Ptrs::class_type...>::template get<0>;
+  using union_type   = util::type_at<0, util::TypeList<typename Ptrs::class_type...>>;
   static_assert(std::is_union_v<union_type>, "All member pointers must refer to subobjects of a union.");
 
   using index_type                 = alternatives::index_type;
@@ -57,7 +57,7 @@ private:
   index_type tag{npos};
 
   template <std::size_t Idx>
-  constexpr static auto member = util::TypeList<Ptrs...>::template get<Idx>::value;
+  constexpr static auto member = util::type_at<Idx, util::TypeList<Ptrs...>>::value;
 
 public:
   template <std::size_t Idx, typename... Args>
@@ -95,7 +95,7 @@ public:
 
   template <typename T, typename... Args>
   constexpr void emplace(Args&&... args) {
-    emplace<alternatives::template get_index<T>>(std::forward<Args>(args)...);
+    emplace<util::index_of<T, alternatives>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

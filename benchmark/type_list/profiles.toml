@@ -1,4 +1,6 @@
 # source = "get_unique.cpp"
+standard = "c++26"
+# options  = ["-O2"]
 
 # [query]
 # "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
@@ -6,15 +8,31 @@
 
 # [profile.Inheritance]
 # INHERITANCE = true
-# COUNT = 10
+# COUNT = 200
+
+# [profile.Inheritance2]
+# INHERITANCE2 = true
+# COUNT = 200
+
+# [profile.Inheritance3]
+# INHERITANCE3 = true
+# COUNT = 200
+
+# [profile.Nested]
+# NESTED = true
+# COUNT = 200
 
 # [profile.Array]
 # ARRAY = true
-# COUNT = 10
+# COUNT = 200
 
 # [profile.Fold]
 # FOLD = true
-# COUNT = 10
+# COUNT = 200
+
+# [profile.Hash]
+# HASH = true
+# COUNT = 200
 
 source = "get.cpp"
 [query]
@@ -23,40 +41,36 @@ source = "get.cpp"
 
 [profile.Recursive]
 RECURSIVE = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
 [profile.Inheritance]
 INHERITANCE1 = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
 [profile.Inheritance2]
 INHERITANCE2 = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
+
+[profile.Nested]
+BUILTIN = true
+COUNT = 200
 
 [profile.Voidptr]
 VOIDPTR = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
 [profile.Ignored]
 IGNORED = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
-[profile.PAGING]
+[profile.Paging]
 PAGING = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
-[profile.BUILTIN]
+[profile.Builtin]
 BUILTIN = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
 
 [profile.CPP26]
 CPP26 = true
-COUNT.min = 1
-COUNT.max = 10
+COUNT = 200
