@@ -4,8 +4,7 @@
 #include <variant>
 
 #include <slo/variant.h>
-
-#include "lifetime.h"
+#include <common/lifetime.h>
 
 template <typename T>
 struct LifetimeTest : public testing::Test {

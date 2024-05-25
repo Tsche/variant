@@ -6,4 +6,4 @@ add_subdirectory(variant)
 add_subdirectory(union)
 add_subdirectory(util)
 
-target_include_directories(slo_test PRIVATE common)
+target_include_directories(slo_test PRIVATE .)

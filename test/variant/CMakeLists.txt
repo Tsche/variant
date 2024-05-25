@@ -4,3 +4,5 @@ target_sources(slo_test PRIVATE
   special_members.cpp
   constructors.cpp
   padding.cpp)
+
+add_subdirectory(helper)

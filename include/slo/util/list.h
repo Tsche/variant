@@ -41,6 +41,7 @@ struct TypeList {
    * @tparam Idx
    */
   template <std::size_t Idx>
+  requires (Idx < sizeof...(Ts))
   using type_at =
 #if __has_builtin(__type_pack_element)
       __type_pack_element<Idx, Ts...>;

@@ -14,9 +14,9 @@
 #include "impl/visit/fptr_array.h"
 #include "impl/visit/visit.h"
 #if USING(SLO_MACRO_VISIT)
-#include "impl/visit/macro.h"
+#  include "impl/visit/macro.h"
 #else
-#include "impl/visit/variadic.h"
+#  include "impl/visit/variadic.h"
 #endif
 
 #include "util/compat.h"
@@ -50,16 +50,16 @@ constexpr decltype(auto) get(V&& variant_) {
 
 template <typename F, typename... Vs>
 constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
-  if constexpr (sizeof...(Vs) == 0){
+  if constexpr (sizeof...(Vs) == 0) {
     return std::forward<F>(visitor)();
   } else {
     constexpr std::size_t max_index = impl::VisitImpl<Vs...>::max_index;
     constexpr int strategy          = max_index > 256          ? -1
                                       : USING(SLO_MACRO_VISIT) ? max_index <= 4    ? 1
-                                                                : max_index <= 16 ? 2
-                                                                : max_index <= 64 ? 3
-                                                                                  : 4
-                                                              : 0;
+                                                                 : max_index <= 16 ? 2
+                                                                 : max_index <= 64 ? 3
+                                                                                   : 4
+                                                               : 0;
     return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
   }
 }
@@ -123,6 +123,10 @@ public:
   using alternatives         = Storage::alternatives;
   static constexpr auto npos = Storage::npos;
   Storage storage;
+
+  static_assert(alternatives::size > 0, "Variant must have at least one alternative");
+  static_assert(!alternatives::template any<std::is_reference>, "Variant must not have reference alternatives");
+  static_assert(!alternatives::template any<std::is_void>, "Variant must not have void alternatives");
 
   // default constructor, only if alternative #0 is default constructible
   constexpr Variant() noexcept(
@@ -245,12 +249,26 @@ public:
 
 template <std::size_t Idx, impl::has_alternatives T>
 struct variant_alternative<Idx, T> {
+  static_assert(Idx < T::alternatives::size, "variant_alternative index out of range");
   using type = util::type_at<Idx, typename T::alternatives>;
 };
 
 template <std::size_t Idx, impl::has_alternatives T>
 struct variant_alternative<Idx, T const> {
-  using type = util::type_at<Idx, typename T::alternatives>;
+  static_assert(Idx < T::alternatives::size, "variant_alternative index out of range");
+  using type = util::type_at<Idx, typename T::alternatives> const;
+};
+
+template <std::size_t Idx, impl::has_alternatives T>
+struct variant_alternative<Idx, T volatile> {
+  static_assert(Idx < T::alternatives::size, "variant_alternative index out of range");
+  using type = util::type_at<Idx, typename T::alternatives> volatile;
+};
+
+template <std::size_t Idx, impl::has_alternatives T>
+struct variant_alternative<Idx, T const volatile> {
+  static_assert(Idx < T::alternatives::size, "variant_alternative index out of range");
+  using type = util::type_at<Idx, typename T::alternatives> const volatile;
 };
 
 template <impl::has_alternatives T>
