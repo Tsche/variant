@@ -12,3 +12,14 @@
                                                                  << "Expected: " << nameof<DEPAREN(second)>
 
 #define EXPECT_NOEXCEPT(...) EXPECT_TRUE((noexcept(__VA_ARGS__))) << "Operation must be noexcept"
+
+#define TEST_T(test_suite_name, test_name, ...)                \
+  template <typename>                                          \
+  void test_suite_name##_##test_name##_ptest_body();           \
+  TEST(Suite, Test) {                                          \
+    []<typename... Ts>() {                                     \
+      (..., test_suite_name##_##test_name##_ptest_body<Ts>()); \
+    }.template operator()<__VA_ARGS__>();                      \
+  }                                                            \
+  template <typename TypeParam>                                \
+  void test_suite_name##_##test_name##_ptest_body()

@@ -1,5 +1,4 @@
 #include <gtest/gtest.h>
-#include <cstddef>
 
 #include <slo/variant.h>
 #include <common/assertions.h>

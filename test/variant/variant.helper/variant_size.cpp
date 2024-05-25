@@ -18,7 +18,11 @@ void check_size() {
 }
 
 TEST(Helpers, variant_size) {
-  check_size<slo::variant<>, 0>();
-  check_size<slo::variant<int>, 1>();
-  check_size<slo::variant<int, char, void*>, 3>();
+  check_size<slo::NormalVariant<>, 0>();
+  check_size<slo::InvertedVariant<>, 0>();
+
+  check_size<slo::NormalVariant<int>, 1>();
+  check_size<slo::NormalVariant<int, char, void*>, 3>();
+  check_size<slo::InvertedVariant<int>, 1>();
+  check_size<slo::InvertedVariant<int, char, void*>, 3>();
 }

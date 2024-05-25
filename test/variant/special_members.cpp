@@ -26,7 +26,7 @@ struct Traits {
     EXPECT_EQ(std::is_copy_assignable_v<T>, copy_assignment != DELETED);
     EXPECT_EQ(std::is_trivially_copy_assignable_v<T>, copy_assignment == TRIVIAL);
     EXPECT_EQ(std::is_move_assignable_v<T>, move_assignment != DELETED);
-    EXPECT_EQ(std::is_trivially_move_assignable_v<T>, move_assignment == TRIVIAL);    
+    EXPECT_EQ(std::is_trivially_move_assignable_v<T>, move_assignment == TRIVIAL);
   }
 };
 
