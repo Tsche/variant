@@ -21,7 +21,7 @@ struct CallResult {
       , args{std::forward<Args>(args_)...} {}
 
   template <typename... Args>
-  [[nodiscard]] constexpr void verify(Qualifiers expected_qualifiers) const {
+  constexpr void verify(Qualifiers expected_qualifiers) const {
     // qualifier mismatch
     ASSERT_EQ(qualifiers, expected_qualifiers) << "this qualifiers mismatched.\n"
                                                << "Expected: " << expected_qualifiers << '\n'
@@ -48,7 +48,7 @@ struct CallResult<0> {
   Qualifiers qualifiers;
 
   template <typename... Args>
-  [[nodiscard]] void verify(Qualifiers expected_qualifiers) const {
+  void verify(Qualifiers expected_qualifiers) const {
     ASSERT_EQ(qualifiers, expected_qualifiers) << "this qualifiers mismatched.\n"
                                                << "Expected: " << expected_qualifiers << '\n'
                                                << "Got:      " << qualifiers << '\n';
