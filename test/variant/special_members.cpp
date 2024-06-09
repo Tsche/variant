@@ -17,16 +17,16 @@ struct Traits {
 
   template <typename T>
   void verify() const {
-    EXPECT_EQ(std::is_destructible_v<T>, destructor != DELETED);
-    EXPECT_EQ(std::is_trivially_destructible_v<T>, destructor == TRIVIAL);
-    EXPECT_EQ(std::is_copy_constructible_v<T>, copy_constructor != DELETED);
-    EXPECT_EQ(std::is_trivially_copy_constructible_v<T>, copy_constructor == TRIVIAL);
-    EXPECT_EQ(std::is_move_constructible_v<T>, move_constructor != DELETED);
-    EXPECT_EQ(std::is_trivially_move_constructible_v<T>, move_constructor == TRIVIAL);
-    EXPECT_EQ(std::is_copy_assignable_v<T>, copy_assignment != DELETED);
-    EXPECT_EQ(std::is_trivially_copy_assignable_v<T>, copy_assignment == TRIVIAL);
-    EXPECT_EQ(std::is_move_assignable_v<T>, move_assignment != DELETED);
-    EXPECT_EQ(std::is_trivially_move_assignable_v<T>, move_assignment == TRIVIAL);
+    ASSERT_EQ(std::is_destructible_v<T>, destructor != DELETED);
+    ASSERT_EQ(std::is_trivially_destructible_v<T>, destructor == TRIVIAL);
+    ASSERT_EQ(std::is_copy_constructible_v<T>, copy_constructor != DELETED);
+    ASSERT_EQ(std::is_trivially_copy_constructible_v<T>, copy_constructor == TRIVIAL);
+    ASSERT_EQ(std::is_move_constructible_v<T>, move_constructor != DELETED);
+    ASSERT_EQ(std::is_trivially_move_constructible_v<T>, move_constructor == TRIVIAL);
+    ASSERT_EQ(std::is_copy_assignable_v<T>, copy_assignment != DELETED);
+    ASSERT_EQ(std::is_trivially_copy_assignable_v<T>, copy_assignment == TRIVIAL);
+    ASSERT_EQ(std::is_move_assignable_v<T>, move_assignment != DELETED);
+    ASSERT_EQ(std::is_trivially_move_assignable_v<T>, move_assignment == TRIVIAL);
   }
 };
 

@@ -3,7 +3,7 @@
 
 
 TEST(Dummy, AlwaysPasses) {
-  EXPECT_TRUE(true);
+  ASSERT_TRUE(true);
 }
 
 int main(int argc, char** argv) {

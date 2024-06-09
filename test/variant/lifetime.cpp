@@ -29,11 +29,11 @@ union Bare {
   ~Bare() {}
 };
 
-using test_types = testing::Types<test_type<std::variant, 5>,           // control
-                                  test_type<slo::InvertedVariant, 5>,   // small union   -> recursive
-                                  test_type<slo::InvertedVariant, 50>,  // big union     -> tree
-                                  test_type<slo::NormalVariant, 5>,    // small variant -> recursive
-                                  test_type<slo::NormalVariant, 50>,   // big variant   -> tree
+using test_types = testing::Types<test_type<std::variant, 5>,  // control
+                                  test_type<slo::InvertedRecursiveVariant, 5>,
+                                  test_type<slo::InvertedTreeVariant, 5>,
+                                  test_type<slo::RecursiveVariant, 5>,
+                                  test_type<slo::TreeVariant, 5>,
                                   slo::Union<&Bare::alt_0, &Bare::alt_1, &Bare::alt_2, &Bare::alt_3, &Bare::alt_4>>;
 TYPED_TEST_SUITE(LifetimeTest, test_types);
 

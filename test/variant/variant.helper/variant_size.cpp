@@ -8,15 +8,15 @@
 
 template <class V, std::size_t E>
 void check_size() {
-  EXPECT_EQ(slo::variant_size<V>::value, E);
-  EXPECT_EQ(slo::variant_size<V const>::value, E);
-  EXPECT_EQ(slo::variant_size<V volatile>::value, E);
-  EXPECT_EQ(slo::variant_size<V const volatile>::value, E);
+  ASSERT_EQ(slo::variant_size<V>::value, E);
+  ASSERT_EQ(slo::variant_size<V const>::value, E);
+  ASSERT_EQ(slo::variant_size<V volatile>::value, E);
+  ASSERT_EQ(slo::variant_size<V const volatile>::value, E);
 
-  EXPECT_EQ(slo::variant_size_v<V>, E);
-  EXPECT_EQ(slo::variant_size_v<V const>, E);
-  EXPECT_EQ(slo::variant_size_v<V volatile>, E);
-  EXPECT_EQ(slo::variant_size_v<V const volatile>, E);
+  ASSERT_EQ(slo::variant_size_v<V>, E);
+  ASSERT_EQ(slo::variant_size_v<V const>, E);
+  ASSERT_EQ(slo::variant_size_v<V volatile>, E);
+  ASSERT_EQ(slo::variant_size_v<V const volatile>, E);
 }
 
 TYPED_TEST(Helpers, VariantSize) {

@@ -1,5 +1,8 @@
+#include <utility>
+
 #include <gtest/gtest.h>
 #include <slo/variant.h>
+
 #include <common/assertions.h>
 #include <common/util.h>
 
@@ -134,14 +137,14 @@ TEST(VisitNoVariant, ReturnValueCategory) {
   auto visitor              = ResultTestVisitor{};
   auto const& const_visitor = visitor;
   auto&& result0            = slo::visit(visitor);
-  EXPECT_SAME(decltype(result0), int&);
+  ASSERT_SAME(decltype(result0), int&);
 
   auto&& result1 = slo::visit(const_visitor);
-  EXPECT_SAME(decltype(result1), int const&);
+  ASSERT_SAME(decltype(result1), int const&);
 
   auto&& result2 = slo::visit(std::move(visitor));
-  EXPECT_SAME(decltype(result2), int&&);
+  ASSERT_SAME(decltype(result2), int&&);
 
   auto&& result3 = slo::visit(std::move(const_visitor));
-  EXPECT_SAME(decltype(result3), int const&&);
+  ASSERT_SAME(decltype(result3), int const&&);
 }

@@ -21,12 +21,12 @@ struct DefaultCtorThrows {
 };
 
 TYPED_TEST(DefaultCtor, Constructible) {
-  EXPECT_TRUE((std::is_default_constructible_v<get_variant<TypeParam, std::monostate>>));
-  EXPECT_TRUE((std::is_default_constructible_v<get_variant<TypeParam, std::monostate, int>>));
-  EXPECT_FALSE((std::is_default_constructible_v<get_variant<TypeParam, NonDefaultConstructible, int>>));
+  ASSERT_TRUE((std::is_default_constructible_v<get_variant<TypeParam, std::monostate>>));
+  ASSERT_TRUE((std::is_default_constructible_v<get_variant<TypeParam, std::monostate, int>>));
+  ASSERT_FALSE((std::is_default_constructible_v<get_variant<TypeParam, NonDefaultConstructible, int>>));
 }
 
 TYPED_TEST(DefaultCtor, Noexcept) {
-  EXPECT_TRUE((std::is_nothrow_default_constructible_v<get_variant<TypeParam, int>>));
-  EXPECT_FALSE((std::is_nothrow_default_constructible_v<get_variant<TypeParam, NotNoexcept>>));
+  ASSERT_TRUE((std::is_nothrow_default_constructible_v<get_variant<TypeParam, int>>));
+  ASSERT_FALSE((std::is_nothrow_default_constructible_v<get_variant<TypeParam, NotNoexcept>>));
 }

@@ -3,7 +3,7 @@
 #include <common/assertions.h>
 struct In;
 struct Out;
-#define CHECK(T, U, R) EXPECT_SAME((slo::compat::like_t<T, U>), R)
+#define CHECK(T, U, R) ASSERT_SAME((slo::compat::like_t<T, U>), R)
 
 // P2445R1  8.1 and 8.2 "merge" model
 // clang-format off

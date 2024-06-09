@@ -7,16 +7,16 @@
 template <class Variant, std::size_t Idx, class Expected>
 void check_alternatives() {
   // type
-  EXPECT_SAME((typename slo::variant_alternative<Idx, Variant>::type), Expected);
-  EXPECT_SAME((typename slo::variant_alternative<Idx, const Variant>::type), const Expected);
-  EXPECT_SAME((typename slo::variant_alternative<Idx, volatile Variant>::type), volatile Expected);
-  EXPECT_SAME((typename slo::variant_alternative<Idx, const volatile Variant>::type), const volatile Expected);
+  ASSERT_SAME((typename slo::variant_alternative<Idx, Variant>::type), Expected);
+  ASSERT_SAME((typename slo::variant_alternative<Idx, const Variant>::type), const Expected);
+  ASSERT_SAME((typename slo::variant_alternative<Idx, volatile Variant>::type), volatile Expected);
+  ASSERT_SAME((typename slo::variant_alternative<Idx, const volatile Variant>::type), const volatile Expected);
 
   // alias
-  EXPECT_SAME((slo::variant_alternative_t<Idx, Variant>), Expected);
-  EXPECT_SAME((slo::variant_alternative_t<Idx, const Variant>), const Expected);
-  EXPECT_SAME((slo::variant_alternative_t<Idx, volatile Variant>), volatile Expected);
-  EXPECT_SAME((slo::variant_alternative_t<Idx, const volatile Variant>), const volatile Expected);
+  ASSERT_SAME((slo::variant_alternative_t<Idx, Variant>), Expected);
+  ASSERT_SAME((slo::variant_alternative_t<Idx, const Variant>), const Expected);
+  ASSERT_SAME((slo::variant_alternative_t<Idx, volatile Variant>), volatile Expected);
+  ASSERT_SAME((slo::variant_alternative_t<Idx, const volatile Variant>), const volatile Expected);
 }
 
 union AlternativeUnion {

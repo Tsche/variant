@@ -17,16 +17,16 @@ constexpr decltype(auto) visit(F&& visitor, Vs&&... variant);
 namespace slo::impl {
 /**
  * @brief Essentially a plain discriminated union.
- * 
- * @tparam Ts 
+ *
+ * @tparam Ts
  */
 template <template <typename...> class Generator, typename... Ts>
 class Storage {
   // discriminated union
 public:
-  using alternatives                              = util::TypeList<Ts...>;
-  using index_type                                = alternatives::index_type;
-  constexpr static index_type npos                = static_cast<index_type>(~0U);
+  using alternatives               = util::TypeList<Ts...>;
+  using index_type                 = alternatives::index_type;
+  constexpr static index_type npos = static_cast<index_type>(~0U);
 
 private:
   using union_type = Generator<Ts...>;
@@ -43,13 +43,15 @@ public:
       : value(idx, std::forward<Args>(args)...)
       , tag(Idx) {}
 
-  constexpr Storage()                          = default;
-  constexpr Storage(Storage const& other)      = default;
-  constexpr Storage(Storage&& other) noexcept  = default;
+  constexpr Storage() {}
+  constexpr Storage(Storage const& other)                = default;
+  constexpr Storage(Storage&& other) noexcept            = default;
   constexpr Storage& operator=(Storage const& other)     = default;
   constexpr Storage& operator=(Storage&& other) noexcept = default;
 
-  constexpr ~Storage() requires std::is_trivially_destructible_v<union_type> = default;
+  constexpr ~Storage()
+    requires std::is_trivially_destructible_v<union_type>
+  = default;
   constexpr ~Storage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }
