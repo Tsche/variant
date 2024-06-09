@@ -27,7 +27,7 @@ union AlternativeUnion {
 };
 
 TEST_T(Helpers,
-       variant_alternative,
+       VariantAlternative,
        slo::NormalVariant<int, void*, const void*, long double>,
        slo::InvertedVariant<int, void*, const void*, long double>,
        slo::Union<&AlternativeUnion::member_0,

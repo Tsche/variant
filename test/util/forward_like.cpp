@@ -1,14 +1,14 @@
 #include <gtest/gtest.h>
 #include <slo/util/compat.h>
-
+#include <common/assertions.h>
 struct In;
 struct Out;
-#define CHECK(T, U, R) ASSERT_TRUE((std::is_same_v<slo::compat::like_t<T, U>, R>))
+#define CHECK(T, U, R) EXPECT_SAME((slo::compat::like_t<T, U>), R)
 
 // P2445R1  8.1 and 8.2 "merge" model
 // clang-format off
 
-TEST(forward_like, value){
+TEST(ForwardLike, Value){
   CHECK(In,         Out,         Out&&);        // 8.1) 1
   CHECK(In,         Out&,        Out&&);        // 8.2) 19
   CHECK(In,         Out&&,       Out&&);        // 8.2) 24
@@ -17,7 +17,7 @@ TEST(forward_like, value){
   CHECK(In,         Out const&&, Out const&&);  // 8.2) 33
 }
 
-TEST(forward_like, lvref){
+TEST(ForwardLike, Lvref){
   CHECK(In&,        Out,         Out&);         // 8.1) 2
   CHECK(In&,        Out&,        Out&);         // 8.1) 13
   CHECK(In&,        Out&&,       Out&);         // 8.1) 14
@@ -26,7 +26,7 @@ TEST(forward_like, lvref){
   CHECK(In&,        Out const&&, Out const&);   // 8.1) 16
 }
 
-TEST(forward_like, rvref){
+TEST(ForwardLike, Rvref){
   CHECK(In&&,       Out,         Out&&);        // 8.1) 3
   CHECK(In&&,       Out&,        Out&&);        // 8.2) 20
   CHECK(In&&,       Out&&,       Out&&);        // 8.2) 25
@@ -35,7 +35,7 @@ TEST(forward_like, rvref){
   CHECK(In&&,       Out const&&, Out const&&);  // 8.2) 34
 }
 
-TEST(forward_like, const_value){
+TEST(ForwardLike, ConstValue){
   CHECK(In const,   Out,         Out const&&);  // 8.1) 4
   CHECK(In const,   Out&,        Out const&&);  // 8.2) 21
   CHECK(In const,   Out&&,       Out const&&);  // 8.2) 26
@@ -44,7 +44,7 @@ TEST(forward_like, const_value){
   CHECK(In const,   Out const&&, Out const&&);  // 8.2) 35
 }
 
-TEST(forward_like, const_lvref){
+TEST(ForwardLike, ConstLvref){
   CHECK(In const&,  Out,         Out const&);   // 8.1) 5
   CHECK(In const&,  Out&,        Out const&);   // 8.2) 22
   CHECK(In const&,  Out&&,       Out const&);   // 8.2) 27
@@ -53,7 +53,7 @@ TEST(forward_like, const_lvref){
   CHECK(In const&,  Out const&&, Out const&);   // 8.1) 18
 }
 
-TEST(forward_like, const_rvref){
+TEST(ForwardLike, ConstRvref){
   CHECK(In const&&, Out,         Out const&&);  // 8.1) 6
   CHECK(In const&&, Out&,        Out const&&);  // 8.2) 23
   CHECK(In const&&, Out&&,       Out const&&);  // 8.2) 28

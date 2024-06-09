@@ -7,7 +7,7 @@
 #include <slo/variant.h>
 
 
-TEST(Padding, inverted) {
+TEST(Padding, Inverted) {
   using normal = std::variant<char[7], float>;
   using compressed = slo::InvertedVariant<char[7], float>;
   EXPECT_LT(sizeof(compressed), sizeof(normal));
@@ -20,7 +20,7 @@ union StandardLayout {
   char dummy;
 };
 
-TEST(Padding, normal) {
+TEST(Padding, Proxy) {
   using normal = std::variant<char[5], float>;
   using compressed = slo::Union<&StandardLayout::first, &StandardLayout::second>;
   

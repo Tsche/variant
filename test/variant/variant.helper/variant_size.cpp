@@ -17,7 +17,7 @@ void check_size() {
   EXPECT_EQ(slo::variant_size_v<V const volatile>, E);
 }
 
-TEST(Helpers, variant_size) {
+TEST(Helpers, VariantSize) {
   check_size<slo::NormalVariant<>, 0>();
   check_size<slo::InvertedVariant<>, 0>();
 

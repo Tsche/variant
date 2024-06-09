@@ -6,7 +6,7 @@ struct Incomplete;
 template <typename T>
 struct Wrapper { T obj; };
 
-TEST(visit, incomplete){
+TEST(Visit, Incomplete){
   auto obj = slo::Variant<Wrapper<Incomplete>*, int>{};
 
   slo::visit([](auto){}, obj);

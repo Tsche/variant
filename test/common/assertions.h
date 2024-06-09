@@ -17,7 +17,7 @@
 #define TEST_T(test_suite_name, test_name, ...)                \
   template <typename>                                          \
   void test_suite_name##_##test_name##_ptest_body();           \
-  TEST(Suite, Test) {                                          \
+  TEST(test_suite_name, test_name) {                           \
     []<typename... Ts>() {                                     \
       (..., test_suite_name##_##test_name##_ptest_body<Ts>()); \
     }.template operator()<__VA_ARGS__>();                      \

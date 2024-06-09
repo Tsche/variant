@@ -1,19 +1,16 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include <concepts>
 #include <type_traits>
 #include <utility>
 #include <slo/variant.h>
 #include <common/type_name.h>
+#include <common/util.h>
 
 template <typename T>
 struct VisitTest : public testing::Test {
   using type = T;
 };
-
-template <auto>
-struct Constant {};
 
 template <template <typename...> class T, std::size_t... Idx>
 auto get_test_type(std::index_sequence<Idx...>) {

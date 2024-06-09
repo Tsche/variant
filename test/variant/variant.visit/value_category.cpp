@@ -125,7 +125,7 @@ struct ResultTestVisitor {
   int const&& operator()() const&& { return std::move(std::as_const(dummy)); }
 };
 
-TEST(VisitResult, ValueCategory) {
+TEST(Visit, ReturnValueCategory) {
   auto visitor              = ResultTestVisitor{};
   auto const& const_visitor = visitor;
   auto&& result0            = slo::visit(visitor);
