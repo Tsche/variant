@@ -1,6 +1,5 @@
 #pragma once
 #include <utility>
-#include <type_traits>
 #include <slo/util/compat.h>
 #include <slo/impl/concepts.h>
 

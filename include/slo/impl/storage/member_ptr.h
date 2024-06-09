@@ -7,7 +7,11 @@
 #include <slo/impl/feature.h>
 #include <slo/util/list.h>
 #include <slo/util/concepts.h>
-#include "common.h"
+
+namespace slo {
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variant);
+}
 
 namespace slo::impl {
 namespace detail {

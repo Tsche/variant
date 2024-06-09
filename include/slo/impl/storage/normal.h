@@ -7,36 +7,31 @@
 #include <slo/impl/union/recursive.h>
 #include <slo/impl/union/tree.h>
 #include <slo/util/list.h>
+#include <slo/util/utility.h>
 
-#include "common.h"
+namespace slo {
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variant);
+}
 
 namespace slo::impl {
-
 /**
  * @brief Essentially a plain discriminated union.
  * 
  * @tparam Ts 
  */
-template <typename... Ts>
+template <template <typename...> class Generator, typename... Ts>
 class Storage {
   // discriminated union
 public:
   using alternatives                              = util::TypeList<Ts...>;
   using index_type                                = alternatives::index_type;
   constexpr static index_type npos                = static_cast<index_type>(~0U);
-  constexpr static bool is_trivially_destructible = (std::is_trivially_destructible_v<Ts> && ...);
 
 private:
-  template <typename... Us>
-  static constexpr auto generate_union() -> RecursiveUnion<is_trivially_destructible, Us...>;
-
-  template <typename... Us>
-    requires(sizeof...(Us) >= SLO_TREE_THRESHOLD)
-  static constexpr auto generate_union() -> TreeUnion<is_trivially_destructible, Ts...>;
-
-  using union_type = decltype(generate_union<Ts...>());
+  using union_type = Generator<Ts...>;
   union {
-    error_type dummy = {};
+    util::error_type dummy = {};
     union_type value;
   };
 
@@ -54,7 +49,7 @@ public:
   constexpr Storage& operator=(Storage const& other)     = default;
   constexpr Storage& operator=(Storage&& other) noexcept = default;
 
-  constexpr ~Storage() requires is_trivially_destructible = default;
+  constexpr ~Storage() requires std::is_trivially_destructible_v<union_type> = default;
   constexpr ~Storage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const { return tag; }

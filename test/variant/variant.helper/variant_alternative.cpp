@@ -28,8 +28,10 @@ union AlternativeUnion {
 
 TEST_T(Helpers,
        VariantAlternative,
-       slo::NormalVariant<int, void*, const void*, long double>,
-       slo::InvertedVariant<int, void*, const void*, long double>,
+       slo::RecursiveVariant<int, void*, const void*, long double>,
+       slo::TreeVariant<int, void*, const void*, long double>,
+       slo::InvertedRecursiveVariant<int, void*, const void*, long double>,
+       slo::InvertedTreeVariant<int, void*, const void*, long double>,
        slo::Union<&AlternativeUnion::member_0,
                   &AlternativeUnion::member_1,
                   &AlternativeUnion::member_2,

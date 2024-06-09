@@ -8,8 +8,12 @@
 #include <slo/impl/union/recursive.h>
 #include <slo/impl/union/tree.h>
 #include <slo/util/list.h>
+#include <slo/util/utility.h>
 
-#include "common.h"
+namespace slo {
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variant);
+}
 
 namespace slo::impl {
 template <auto Idx, typename ValueType>
@@ -33,7 +37,7 @@ struct TaggedWrapper {
 
 /**
  * @brief Storage for an inverted variant. This attempts to reduce padding by hiding the
- *        tag in the alternatives themselves. Outside of constant evaluated context the 
+ *        tag in the alternatives themselves. Outside of constant evaluated context the
  *        current tag can be retrieved through an inactive member, since all alternatives
  *        share the same common initial sequence.
  *
@@ -48,33 +52,27 @@ struct TaggedWrapper {
  *
  * @warning [class.mem]/26 mandates standard-layout unions for this technique, consequently it will
  *          only work if all alternatives are standard-layout types.
- * 
+ *
  * @tparam Ts... Alternative types. Must be standard layout.
  */
-template <typename... Ts>
+template <template <typename...> class Generator, typename... Ts>
 union InvertedStorage {
   // inverted variant
-  static_assert((std::is_standard_layout_v<Ts> && ...), 
+  static_assert((std::is_standard_layout_v<Ts> && ...),
                 "[class.mem]/26 mandates standard-layout unions for this technique. "
                 "This means only standard-layout alternatives can be used.");
 
-  using alternatives                              = util::TypeList<Ts...>;
-  using index_type                                = alternatives::index_type;
-  constexpr static index_type npos                = static_cast<index_type>(~0U);
-  constexpr static bool is_trivially_destructible = (std::is_trivially_destructible_v<Ts> && ...);
+  using alternatives               = util::TypeList<Ts...>;
+  using index_type                 = alternatives::index_type;
+  constexpr static index_type npos = static_cast<index_type>(~0U);
 
   template <std::size_t... Is>
   static constexpr auto generate_union(std::index_sequence<Is...>)
-      -> RecursiveUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
-
-  template <std::size_t... Is>
-    requires(sizeof...(Ts) >= SLO_TREE_THRESHOLD)
-  static constexpr auto generate_union(std::index_sequence<Is...>)
-      -> TreeUnion<is_trivially_destructible, TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
+      -> Generator<TaggedWrapper<static_cast<index_type>(Is), Ts>...>;
 
   using union_type = decltype(generate_union(std::index_sequence_for<Ts...>()));
 
-  TaggedWrapper<npos, error_type> dummy;
+  TaggedWrapper<npos, util::error_type> dummy;
   struct Container {
     union_type value;
   } storage;
@@ -85,12 +83,14 @@ public:
       : storage{union_type(idx, std::forward<Args>(args)...)} {}
 
   constexpr InvertedStorage() : dummy() {}
-  constexpr InvertedStorage(InvertedStorage const& other)  = default;
-  constexpr InvertedStorage(InvertedStorage&& other)       = default;
+  constexpr InvertedStorage(InvertedStorage const& other)            = default;
+  constexpr InvertedStorage(InvertedStorage&& other)                 = default;
   constexpr InvertedStorage& operator=(InvertedStorage const& other) = default;
   constexpr InvertedStorage& operator=(InvertedStorage&& other)      = default;
 
-  constexpr ~InvertedStorage() requires is_trivially_destructible = default;
+  constexpr ~InvertedStorage()
+    requires std::is_trivially_destructible_v<union_type>
+  = default;
   constexpr ~InvertedStorage() { reset(); }
 
   [[nodiscard]] constexpr std::size_t index() const {
@@ -113,11 +113,6 @@ public:
   constexpr void emplace(Args&&... args) {
     reset();
     std::construct_at(&storage.value, std::in_place_index<Idx>, std::forward<Args>(args)...);
-  }
-
-  template <typename T, typename... Args>
-  constexpr void emplace(Args&&... args) {
-    emplace<util::index_of<T, alternatives>>(std::forward<Args>(args)...);
   }
 
   template <std::size_t Idx, typename Self>

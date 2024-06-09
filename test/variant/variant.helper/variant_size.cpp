@@ -3,6 +3,8 @@
 
 #include <slo/variant.h>
 #include <common/type_name.h>
+#include <common/util.h>
+#include <common/fixtures/helpers.h>
 
 template <class V, std::size_t E>
 void check_size() {
@@ -17,12 +19,8 @@ void check_size() {
   EXPECT_EQ(slo::variant_size_v<V const volatile>, E);
 }
 
-TEST(Helpers, VariantSize) {
-  check_size<slo::NormalVariant<>, 0>();
-  check_size<slo::InvertedVariant<>, 0>();
-
-  check_size<slo::NormalVariant<int>, 1>();
-  check_size<slo::NormalVariant<int, char, void*>, 3>();
-  check_size<slo::InvertedVariant<int>, 1>();
-  check_size<slo::InvertedVariant<int, char, void*>, 3>();
+TYPED_TEST(Helpers, VariantSize) {
+  check_size<get_variant<TypeParam>, 0>();
+  check_size<get_variant<TypeParam, int>, 1>();
+  check_size<get_variant<TypeParam, int, char, void*>, 3>();
 }
