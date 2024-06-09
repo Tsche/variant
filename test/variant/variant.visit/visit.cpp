@@ -3,7 +3,9 @@
 
 #include <concepts>
 #include <type_traits>
+#include <utility>
 #include <slo/variant.h>
+#include <common/type_name.h>
 
 template <typename T>
 struct VisitTest : public testing::Test {
@@ -30,29 +32,13 @@ union Bare {
 
 using test_types = testing::Types<test_type<slo::InvertedVariant, 5>,   // small union   -> recursive
                                   test_type<slo::InvertedVariant, 50>,  // big union     -> tree
-                                  test_type<slo::NormalVariant, 5>,    // small variant -> recursive
+                                  test_type<slo::NormalVariant, 5>,     // small variant -> recursive
                                   test_type<slo::NormalVariant, 50>,    // big variant   -> tree
-                                  slo::Union<&Bare::alt_0, &Bare::alt_1, &Bare::alt_2, &Bare::alt_3, &Bare::alt_4>
-                                  >;
+                                  slo::Union<&Bare::alt_0, &Bare::alt_1, &Bare::alt_2, &Bare::alt_3, &Bare::alt_4>>;
 TYPED_TEST_SUITE(VisitTest, test_types);
 
-struct Qualifiers {
-  bool is_const;
-  bool is_rvalue;
 
-  Qualifiers(Qualifiers const&)            = default;
-  Qualifiers(Qualifiers&&)                 = default;
-  Qualifiers()                             = default;
-  ~Qualifiers()                            = default;
-  Qualifiers& operator=(Qualifiers const&) = default;
-  Qualifiers& operator=(Qualifiers&&)      = default;
 
-  template <typename T>
-    requires(!std::same_as<std::remove_cvref_t<T>, Qualifiers>)
-  explicit Qualifiers(T&&)
-      : is_const(std::is_const_v<std::remove_reference_t<T>>)
-      , is_rvalue(std::is_rvalue_reference_v<T&&>) {}
-};
 
 TYPED_TEST(VisitTest, lvref) {
   auto variant = TypeParam{std::in_place_index<1>};
@@ -63,7 +49,6 @@ TYPED_TEST(VisitTest, lvref) {
         ASSERT_FALSE(qualifiers.is_rvalue);
       },
       variant);
-
 }
 TYPED_TEST(VisitTest, const_lvref) {
   const auto variant = TypeParam{std::in_place_index<1>};

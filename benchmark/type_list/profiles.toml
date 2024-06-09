@@ -1,76 +1,76 @@
-# source = "get_unique.cpp"
-standard = "c++26"
-# options  = ["-O2"]
+# # source = "get_unique.cpp"
+# standard = "c++26"
+# # options  = ["-O2"]
 
+# # [query]
+# # "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
+# # "total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+
+# # [profile.Inheritance]
+# # INHERITANCE = true
+# # COUNT = 200
+
+# # [profile.Inheritance2]
+# # INHERITANCE2 = true
+# # COUNT = 200
+
+# # [profile.Inheritance3]
+# # INHERITANCE3 = true
+# # COUNT = 200
+
+# # [profile.Nested]
+# # NESTED = true
+# # COUNT = 200
+
+# # [profile.Array]
+# # ARRAY = true
+# # COUNT = 200
+
+# # [profile.Fold]
+# # FOLD = true
+# # COUNT = 200
+
+# # [profile.Hash]
+# # HASH = true
+# # COUNT = 200
+
+# # source = "get.cpp"
 # [query]
-# "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
+# # "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
 # "total" = "traceEvents[?name=='ExecuteCompiler'].dur"
 
+# [profile.Recursive]
+# RECURSIVE = true
+# COUNT = 200
+
 # [profile.Inheritance]
-# INHERITANCE = true
+# INHERITANCE1 = true
 # COUNT = 200
 
 # [profile.Inheritance2]
 # INHERITANCE2 = true
 # COUNT = 200
 
-# [profile.Inheritance3]
-# INHERITANCE3 = true
-# COUNT = 200
-
 # [profile.Nested]
-# NESTED = true
+# BUILTIN = true
 # COUNT = 200
 
-# [profile.Array]
-# ARRAY = true
+# [profile.Voidptr]
+# VOIDPTR = true
 # COUNT = 200
 
-# [profile.Fold]
-# FOLD = true
+# [profile.Ignored]
+# IGNORED = true
 # COUNT = 200
 
-# [profile.Hash]
-# HASH = true
+# [profile.Paging]
+# PAGING = true
 # COUNT = 200
 
-source = "get.cpp"
-[query]
-# "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'run')].dur"
-"total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+# [profile.Builtin]
+# BUILTIN = true
+# COUNT = 200
 
-[profile.Recursive]
-RECURSIVE = true
-COUNT = 200
-
-[profile.Inheritance]
-INHERITANCE1 = true
-COUNT = 200
-
-[profile.Inheritance2]
-INHERITANCE2 = true
-COUNT = 200
-
-[profile.Nested]
-BUILTIN = true
-COUNT = 200
-
-[profile.Voidptr]
-VOIDPTR = true
-COUNT = 200
-
-[profile.Ignored]
-IGNORED = true
-COUNT = 200
-
-[profile.Paging]
-PAGING = true
-COUNT = 200
-
-[profile.Builtin]
-BUILTIN = true
-COUNT = 200
-
-[profile.CPP26]
-CPP26 = true
-COUNT = 200
+# [profile.CPP26]
+# CPP26 = true
+# COUNT = 200

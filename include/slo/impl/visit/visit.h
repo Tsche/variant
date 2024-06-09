@@ -8,6 +8,9 @@
 #include <slo/impl/concepts.h>
 
 namespace slo {
+template <std::size_t, typename>
+struct variant_alternative;
+
 template <typename>
 struct variant_size;
 
@@ -26,9 +29,12 @@ struct Key {
 
   static consteval auto generate_offsets() {
     std::array<std::size_t, size> result = {};
-    std::size_t multiplier               = 1;
-    std::size_t idx                      = 0;
-    (..., (result[idx++] = idx != 0U ? (multiplier *= Dimensions) : 1));
+    constexpr std::size_t dimensions[]   = {Dimensions...};
+    result[0]                            = 1;
+    for (std::size_t idx = 1; idx < size; ++idx) {
+      result[idx] = dimensions[idx - 1] * result[idx - 1];
+    }
+
     return result;
   }
 
@@ -38,15 +44,18 @@ struct Key {
   std::size_t subindices[sizeof...(Dimensions)] = {};
 
   constexpr explicit Key(std::size_t index_) noexcept : index(index_) {
-    std::size_t key = index_;
-    std::size_t idx = 0;
-    (..., (subindices[idx++] = (key % Dimensions), key /= Dimensions));
+    std::size_t key                    = index_;
+    constexpr std::size_t dimensions[] = {Dimensions...};
+    for (std::size_t idx = 0; idx < size; ++idx) {
+      subindices[idx] = key % dimensions[idx];
+      key /= dimensions[idx];
+    }
   }
 
   constexpr explicit Key(std::convertible_to<std::size_t> auto... subindices_) noexcept
     requires(sizeof...(subindices_) > 1)
-      : subindices(subindices_...)
-      , index(0) {
+      : index(0)
+      , subindices(subindices_...) {
     static_assert(sizeof...(subindices_) == size, "Number of indices must match the number of dimensions.");
     for (std::size_t idx = 0; idx < size; ++idx) {
       index += subindices[idx] * offsets[idx];
@@ -96,5 +105,6 @@ struct VisitImpl<Variant> {
 
 // non-exhaustive result type check
 template <typename F, typename... Vs>
-using visit_result_t = decltype(VisitImpl<Vs...>::template visit<0>(std::declval<F>(), std::declval<Vs>()...));
+// TODO: Vs... might be derived from variant
+using visit_result_t = std::invoke_result_t<F, typename slo::variant_alternative<0, std::remove_cvref_t<Vs>>::type...>;
 }  // namespace slo::impl

@@ -105,8 +105,7 @@ public:
   // default constructor, only if alternative #0 is default constructible
   constexpr Variant() noexcept(
       std::is_nothrow_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/5
-    requires(alternatives::size > 0 &&
-             std::is_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/2
+    requires(std::is_default_constructible_v<variant_alternative_t<0, Variant>>)  // [variant.ctor]/2
       : Variant(std::in_place_index<0>) {}                                        // [variant.ctor]/3
 
   constexpr Variant(Variant const& other) = default;
@@ -314,7 +313,7 @@ constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
 }
 
 /**
- * @brief This implementation of variant
+ * @brief This implementation of variant uses a recursively defined union under the hood.
  *
  * @tparam Ts Alternative types
  */

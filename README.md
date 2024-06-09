@@ -18,7 +18,7 @@ Sometimes for some reason you already have a bare union. To allow you to use it 
 
 The interesting thing about wrapping a bare union like this is that we now have a flat union type. None of the recursion worries matter anymore and as an added bonus we can (optionally) attempt to hide the discriminator in tail padding of the union member.
 
-## Visitation
+### Visitation
 `slo::visit` can use one of 3 visitation strategies
 - Generate a sufficiently large switch with macros, discard all unneeded cases. The Microsoft STL way.
 - Trigger an optimization pass in GCC/Clang to turn a fold expression into a switch.

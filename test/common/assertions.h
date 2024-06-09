@@ -1,4 +1,5 @@
 #pragma once
+#include <gtest/gtest.h>
 #include "type_name.h"
 
 #define DEPAREN(X) ESC(ISH X)
