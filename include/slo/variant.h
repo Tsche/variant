@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
+#include <functional>
 
 #include "impl/feature.h"
 #include "impl/concepts.h"
@@ -392,4 +393,34 @@ Union<Ptrs...> make_variant(Args&&... args) {
   return {std::forward<Args>(args)...};
 }
 
+struct monostate {};
+
 }  // namespace slo
+
+template <>
+struct std::hash<slo::monostate> {
+  using result_type   = std::size_t;
+  using argument_type = slo::monostate;
+
+  std::size_t operator()(const slo::monostate&) const noexcept {
+    constexpr static std::size_t monostate_hash = 0xb03c924ec92d7c6f;
+    return monostate_hash;
+  }
+};
+
+template <template <typename...> class Storage, typename... Ts>
+requires (slo::util::is_hashable<Ts> && ...)
+struct std::hash<slo::impl::Variant<Storage, Ts...>> {
+  using result_type   = std::size_t;
+  using argument_type = slo::impl::Variant<Storage, Ts...>;
+
+  std::size_t operator()(argument_type const& obj) const
+      noexcept((std::is_nothrow_invocable_v<std::hash<std::remove_const_t<Ts>>, Ts const&> && ...)) {
+    if (obj.valueless_by_exception()) {
+      constexpr static std::size_t valueless_hash = 0x22c08c8cbcae8fc4;
+      return valueless_hash;
+    }
+    return obj.index() +
+           slo::visit([]<typename T>(T const& value) { return std::hash<std::remove_cvref_t<T>>{}(value); }, obj);
+  }
+};
