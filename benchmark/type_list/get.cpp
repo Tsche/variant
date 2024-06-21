@@ -330,7 +330,7 @@ struct GetImpl<15, List<T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T
   using tail = List<Ts...>;
 };
 
-constexpr inline auto PAGE_SIZE = 15U;
+constexpr inline std::size_t PAGE_SIZE = 16;
 
 template <std::size_t Idx, template <typename...> class List, typename... Ts>
   requires(Idx >= PAGE_SIZE)

@@ -22,6 +22,7 @@
 #  include "impl/visit/variadic.h"
 #endif
 
+#include "util/concepts.h"
 #include "util/compat.h"
 #include "util/list.h"
 #include "util/utility.h"
@@ -136,7 +137,7 @@ public:
                              std::initializer_list<U> init_list,
                              Args&&... args) noexcept(std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>,
                                                                                       std::initializer_list<U>&,
-                                                                                      Args...>)  // not standardized
+                                                                                      Args...>)  // noexcept not standardized
       : storage(idx, init_list, std::forward<Args>(args)...) {}
 
   // TODO inplace + initializer list
@@ -176,12 +177,12 @@ public:
 
   template <std::size_t Idx, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return slo::get<Idx>(std::forward<Self>(self).storage);
+    return std::forward<Self>(self).storage.template get<Idx>();
   }
 
   template <typename T, typename Self>
   constexpr decltype(auto) get(this Self&& self) {
-    return slo::get<util::index_of<T, alternatives>>(std::forward<Self>(self).storage);
+    return std::forward<Self>(self).storage.template get<util::index_of<T, alternatives>>();
   }
 
   template <typename Self, typename V>
@@ -195,6 +196,23 @@ public:
       return idx;
     }
     return variant_npos;
+  }
+
+  void swap(Variant& other) {
+    if (valueless_by_exception() && other.valueless_by_exception()) {
+      // both variants valueless - do nothing
+      return;
+    }
+    if (index() == other.index()){
+      // same index, swap the held objects directly
+      slo::visit([](auto& own_value, auto& other_value){
+        using std::swap;
+        swap(own_value, other_value);
+      }, *this, other);
+    }
+#if __cpp_exceptions
+#else
+#endif
   }
 };
 }  // namespace impl
@@ -266,7 +284,20 @@ constexpr bool holds_alternative(impl::Variant<Storage, Types...> const& obj) no
 }
 
 template <std::size_t Idx, impl::has_get V>
+constexpr decltype(auto) get_unchecked(V&& variant_) noexcept {
+  return std::forward<V>(variant_).template get<Idx>();
+}
+
+template <typename T, impl::has_get V>
+constexpr decltype(auto) get_unchecked(V&& variant_) noexcept {
+  return std::forward<V>(variant_).template get<T>();
+}
+
+template <std::size_t Idx, impl::has_get V>
 constexpr decltype(auto) get(V&& variant_) {
+  if (variant_.index() != Idx) [[unlikely]] {
+    impl::throw_bad_variant_access(variant_.valueless_by_exception());
+  }
   return std::forward<V>(variant_).template get<Idx>();
 }
 
@@ -275,7 +306,26 @@ constexpr decltype(auto) get(V&& variant_) {
   return std::forward<V>(variant_).template get<T>();
 }
 
-template <typename F, typename... Vs>
+template <std::size_t Idx, impl::has_get V>
+constexpr auto* get_if(V* variant_) noexcept {
+  static_assert(Idx < std::remove_cvref_t<V>::alternatives::size, "index must be in [0, number of alternatives)");
+  static_assert(!std::is_void_v<variant_alternative_t<Idx, std::remove_cvref_t<V>>>,
+                "alternative type must not be void");
+
+  if (variant_ && variant_->index() == Idx) {
+    return std::addressof(slo::get_unchecked<Idx>(*variant_));
+  }
+  return nullptr;
+}
+
+template <typename T, impl::has_get V>
+constexpr auto* get_if(V* variant_) noexcept {
+  constexpr static std::size_t index = util::index_of<T, typename std::remove_cvref_t<V>::alternatives>;
+  static_assert(index < std::remove_cvref_t<V>::alternatives::size, "T must occur exactly once in alternatives");
+  return get_if<index>(variant_);
+}
+
+template <typename R, typename F, typename... Vs>
 constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
   if constexpr (sizeof...(Vs) == 0) {
     return std::forward<F>(visitor)();
@@ -287,8 +337,15 @@ constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
                                                                  : max_index <= 64 ? 3
                                                                                    : 4
                                                                : 0;
-    return slo::impl::VisitStrategy<strategy>::visit(std::forward<F>(visitor), std::forward<Vs>(variants)...);
+    using visit_helper = impl::VisitStrategy<strategy>;
+    return visit_helper::template visit<R>(std::forward<F>(visitor), std::forward<Vs>(variants)...);
   }
+}
+
+template <typename F, typename... Vs>
+constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
+  using return_type = impl::visit_result_t<F, Vs...>;
+  return slo::visit<return_type>(std::forward<F>(visitor), std::forward<Vs>(variants)...);
 }
 
 namespace impl {
@@ -409,7 +466,7 @@ struct std::hash<slo::monostate> {
 };
 
 template <template <typename...> class Storage, typename... Ts>
-requires (slo::util::is_hashable<Ts> && ...)
+  requires(slo::util::is_hashable<Ts> && ...)
 struct std::hash<slo::impl::Variant<Storage, Ts...>> {
   using result_type   = std::size_t;
   using argument_type = slo::impl::Variant<Storage, Ts...>;

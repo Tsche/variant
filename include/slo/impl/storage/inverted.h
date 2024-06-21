@@ -24,7 +24,7 @@ struct TaggedWrapper {
   constexpr explicit TaggedWrapper(Args&&... args) : tag{Idx}
                                                    , storage{std::forward<Args>(args)...} {}
 
-  [[nodiscard]] constexpr std::size_t index() const { return tag; }
+  [[nodiscard]] constexpr std::size_t index() const noexcept { return tag; }
 
   [[nodiscard]] constexpr ValueType& unwrap() & { return storage; }
   [[nodiscard]] constexpr ValueType const& unwrap() const& { return storage; }
@@ -93,7 +93,7 @@ public:
   = default;
   constexpr ~InvertedStorage() { reset(); }
 
-  [[nodiscard]] constexpr std::size_t index() const {
+  [[nodiscard]] constexpr std::size_t index() const noexcept {
     if consteval {
       if (!compat::is_within_lifetime(&dummy.tag)) {
         return storage.value.index();

@@ -63,10 +63,10 @@ public:
     tag = Idx;
   }
 
-  constexpr StorageProxy(StorageProxy const& other)      = default;
-  constexpr StorageProxy(StorageProxy&& other) noexcept  = default;
-  constexpr StorageProxy& operator=(StorageProxy const& other)     = default;
-  constexpr StorageProxy& operator=(StorageProxy&& other) noexcept = default;
+  constexpr StorageProxy(StorageProxy const& other)            = default;
+  constexpr StorageProxy(StorageProxy&& other)                 = default;
+  constexpr StorageProxy& operator=(StorageProxy const& other) = default;
+  constexpr StorageProxy& operator=(StorageProxy&& other)      = default;
 
   constexpr StorageProxy() {}
   constexpr ~StorageProxy()
@@ -74,7 +74,7 @@ public:
   = default;
   constexpr ~StorageProxy() { reset(); }
 
-  [[nodiscard]] constexpr std::size_t index() const { return tag; }
+  [[nodiscard]] constexpr std::size_t index() const noexcept { return tag; }
 
   constexpr void reset() {
     if (tag != npos) {

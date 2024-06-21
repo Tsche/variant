@@ -1,16 +1,16 @@
-# source   = "macro_visit.cpp"
-# standard = "c++2b"
-# options  = ["-O2"]
+source   = "macro_visit.cpp"
+standard = "c++2b"
+options  = ["-O2"]
 
-# [query]
-# # "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'generate_union')].dur"
-# total = "traceEvents[?name=='ExecuteCompiler'].dur"
-# [profile.simple]
-# TEST_SIZE.min = 0
-# TEST_SIZE.max = 255
-# TIERED = false
+[query]
+# "generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'generate_union')].dur"
+total = "traceEvents[?name=='ExecuteCompiler'].dur"
+[profile.simple]
+TEST_SIZE.min = 0
+TEST_SIZE.max = 255
+TIERED = false
 
-# [profile.tiered]
-# TEST_SIZE.min = 0
-# TEST_SIZE.max = 255
-# TIERED = true
+[profile.tiered]
+TEST_SIZE.min = 0
+TEST_SIZE.max = 255
+TIERED = true

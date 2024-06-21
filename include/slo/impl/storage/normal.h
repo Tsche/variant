@@ -44,17 +44,17 @@ public:
       , tag(Idx) {}
 
   constexpr Storage() {}
-  constexpr Storage(Storage const& other)                = default;
-  constexpr Storage(Storage&& other) noexcept            = default;
-  constexpr Storage& operator=(Storage const& other)     = default;
-  constexpr Storage& operator=(Storage&& other) noexcept = default;
+  constexpr Storage(Storage const& other)            = default;
+  constexpr Storage(Storage&& other)                 = default;
+  constexpr Storage& operator=(Storage const& other) = default;
+  constexpr Storage& operator=(Storage&& other)      = default;
 
   constexpr ~Storage()
     requires std::is_trivially_destructible_v<union_type>
   = default;
   constexpr ~Storage() { reset(); }
 
-  [[nodiscard]] constexpr std::size_t index() const { return tag; }
+  [[nodiscard]] constexpr std::size_t index() const noexcept { return tag; }
 
   constexpr void reset() {
     if (tag != npos) {

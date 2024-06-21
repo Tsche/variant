@@ -12,12 +12,11 @@ namespace slo::impl {
 template <>
 struct VisitStrategy<0> {
   // fold
-  template <typename F, typename... Vs, std::size_t... Idx>
+  template <typename R, typename F, typename... Vs, std::size_t... Idx>
   constexpr static decltype(auto) visit_impl(std::index_sequence<Idx...>, F&& visitor, Vs&&... variants) {
-    using return_type = visit_result_t<F, Vs...>;
     auto index        = typename VisitImpl<Vs...>::key_type{variants.index()...};
     bool success      = false;
-    if constexpr (std::same_as<return_type, void>) {
+    if constexpr (std::same_as<R, void>) {
       success = ((index == Idx
                   ? VisitImpl<Vs...>::template visit<Idx>(std::forward<F>(visitor), std::forward<Vs>(variants)...),
                   true : false) ||
@@ -28,7 +27,7 @@ struct VisitStrategy<0> {
     } else {
       union {
         char dummy;
-        return_type value;
+        R value;
       } ret{};
 
       success =
@@ -45,10 +44,10 @@ struct VisitStrategy<0> {
     throw_bad_variant_access((variants.valueless_by_exception() || ...));
   }
 
-  template <typename F, typename... Vs>
+  template <typename R, typename F, typename... Vs>
   constexpr static decltype(auto) visit(F&& visitor, Vs&&... variants) {
     constexpr auto states = VisitImpl<Vs...>::max_index;
-    return visit_impl(std::make_index_sequence<states>{}, std::forward<F>(visitor), std::forward<Vs>(variants)...);
+    return visit_impl<R>(std::make_index_sequence<states>{}, std::forward<F>(visitor), std::forward<Vs>(variants)...);
   }
 };
 

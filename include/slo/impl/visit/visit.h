@@ -15,7 +15,7 @@ template <typename>
 struct variant_size;
 
 template <std::size_t Idx, impl::has_get V>
-constexpr decltype(auto) get(V&&);
+constexpr decltype(auto) get_unchecked(V&&) noexcept;
 }  // namespace slo
 
 namespace slo::impl {
@@ -81,7 +81,7 @@ struct VisitImpl {
     template <typename F, typename... U>
     [[gnu::always_inline]]
     constexpr static decltype(auto) visit(F&& visitor, U&&... variants) {
-      return std::forward<F>(visitor)(slo::get<Tag[Idx]>(std::forward<U>(variants))...);
+      return std::forward<F>(visitor)(slo::get_unchecked<Tag[Idx]>(std::forward<U>(variants))...);
     }
   };
 
@@ -99,7 +99,7 @@ struct VisitImpl<Variant> {
 
   template <std::size_t Idx, typename F, typename U>
   [[gnu::always_inline]] constexpr static decltype(auto) visit(F&& visitor, U&& variant) {
-    return std::forward<F>(visitor)(slo::get<Idx>(std::forward<U>(variant)));
+    return std::forward<F>(visitor)(slo::get_unchecked<Idx>(std::forward<U>(variant)));
   }
 };
 

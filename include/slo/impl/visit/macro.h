@@ -18,14 +18,14 @@ struct VisitStrategy;
 
 #define SLO_VISIT_CASE(Idx)                                                                                  \
   case Idx:                                                                                                  \
-    if constexpr ((Idx) < VisitImpl<Vs...>::max_index) {                                                             \
+    if constexpr ((Idx) < VisitImpl<Vs...>::max_index) {                                                     \
       return VisitImpl<Vs...>::template visit<Idx>(std::forward<F>(visitor), std::forward<Vs>(variants)...); \
     }                                                                                                        \
     std::unreachable();
 
 #define SLO_VISIT_STAMP(stamper, n)                                                \
-  const auto key = typename VisitImpl<Vs...>::key_type(variants.index()...);                                  \
-  switch (static_cast<std::size_t>(key)) {                                                             \
+  const auto key = typename VisitImpl<Vs...>::key_type(variants.index()...);       \
+  switch (static_cast<std::size_t>(key)) {                                         \
     stamper(0, SLO_VISIT_CASE);                                                    \
     default: throw_bad_variant_access((variants.valueless_by_exception() || ...)); \
   }
@@ -33,7 +33,7 @@ struct VisitStrategy;
 #define SLO_GENERATE_STRATEGY(Idx, Count)                                  \
   template <>                                                              \
   struct VisitStrategy<Idx> {                                              \
-    template <typename F, typename... Vs>                                  \
+    template <typename, typename F, typename... Vs>                        \
     static constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) { \
       SLO_STAMP(Count, SLO_VISIT_STAMP);                                   \
     }                                                                      \
