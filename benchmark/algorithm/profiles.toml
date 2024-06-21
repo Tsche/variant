@@ -1,0 +1,14 @@
+source = "cbt.cpp"
+standard = "c++26"
+
+[query]
+"generate_type" = "traceEvents[?name=='InstantiateFunction' && starts_with(@.args.detail, 'generate_tree')].dur"
+"total" = "traceEvents[?name=='ExecuteCompiler'].dur"
+
+[profile.Indexing]
+INDEXING = true
+COUNT = 255
+
+[profile.Recursive]
+RECURSIVE = true
+COUNT = 255

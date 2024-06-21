@@ -1,0 +1,41 @@
+name: Run codegen
+
+on:
+  push:
+    branches: ["master", "develop"]
+  workflow_dispatch:
+
+# only run one at a time, discard unfinished runs
+concurrency:
+  group: "codegen"
+  cancel-in-progress: true
+
+jobs:
+  codegen:
+    permissions:
+      contents: write
+      pull-requests: write
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup palgen
+      uses: palliate/palgen@master
+      with:
+        run: false
+        requirements: tools/requirements.txt
+
+    - name: Run codegen
+      run: palgen --debug codegen
+
+    - name: PR changes
+      uses: peter-evans/create-pull-request@v6
+      with:
+        commit-message: Rerun codegen
+        author: Codegen Bot <contact@palliate.io>
+        branch: codegen/uncommitted
+        delete-branch: true
+        title: Codegen update
+        draft: false
