@@ -1,7 +1,6 @@
 #pragma once
 #include <cstddef>
 #include <utility>
-#include <array>
 #include "visit.h"
 namespace slo::impl {
 

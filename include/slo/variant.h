@@ -1,4 +1,6 @@
 #pragma once
+#include <algorithm>
+#include <compare>
 #include <cstddef>
 #include <concepts>
 #include <initializer_list>
@@ -8,18 +10,19 @@
 
 #include "impl/feature.h"
 #include "impl/concepts.h"
+#include "impl/exception.h"
 #include "impl/storage/inverted.h"
 #include "impl/storage/normal.h"
 #include "impl/storage/member_ptr.h"
 
 #include "impl/visit/fptr_array.h"
 #include "impl/visit/visit.h"
-#include "slo/impl/union/recursive.h"
-#include "slo/impl/union/tree.h"
+#include "impl/union/recursive.h"
+#include "impl/union/tree.h"
 #if USING(SLO_MACRO_VISIT)
-#  include "impl/visit/macro.h"
+#include "impl/visit/macro.h"
 #else
-#  include "impl/visit/variadic.h"
+#include "impl/visit/variadic.h"
 #endif
 
 #include "util/concepts.h"
@@ -133,11 +136,12 @@ public:
       : storage(idx, std::forward<Args>(args)...) {}
 
   template <std::size_t Idx, typename U, typename... Args>
-  constexpr explicit Variant(std::in_place_index_t<Idx> idx,
-                             std::initializer_list<U> init_list,
-                             Args&&... args) noexcept(std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>,
-                                                                                      std::initializer_list<U>&,
-                                                                                      Args...>)  // noexcept not standardized
+  constexpr explicit Variant(
+      std::in_place_index_t<Idx> idx,
+      std::initializer_list<U> init_list,
+      Args&&... args) noexcept(std::is_nothrow_constructible_v<util::type_at<Idx, alternatives>,
+                                                               std::initializer_list<U>&,
+                                                               Args...>)  // noexcept not standardized
       : storage(idx, init_list, std::forward<Args>(args)...) {}
 
   // TODO inplace + initializer list
@@ -198,24 +202,201 @@ public:
     return variant_npos;
   }
 
+private:
+  constexpr bool can_nothrow_move() const {
+    constexpr bool results[] = {std::is_nothrow_move_constructible_v<Ts>...};
+    return valueless_by_exception() || results[index()];
+  }
+public:
   void swap(Variant& other) {
     if (valueless_by_exception() && other.valueless_by_exception()) {
       // both variants valueless - do nothing
       return;
     }
-    if (index() == other.index()){
+
+    if (index() == other.index()) {
       // same index, swap the held objects directly
-      slo::visit([](auto& own_value, auto& other_value){
-        using std::swap;
-        swap(own_value, other_value);
-      }, *this, other);
+      slo::visit(
+          [](auto& own_value, auto& other_value) {
+            using std::swap;
+            swap(own_value, other_value);
+          },
+          *this, other);
+      return;
     }
+
+    Variant* lhs = this;
+    Variant* rhs = std::addressof(other);
+
+    if (can_nothrow_move() && other.can_nothrow_move()) {
+      std::swap(lhs, rhs);
+    }
+
+    Variant tmp(std::move(other));
+    
 #if __cpp_exceptions
+  if constexpr (alternatives::template all<std::is_nothrow_move_constructible>){
+    
+  }
 #else
+
 #endif
   }
 };
+
+template <template <typename...> class Storage, typename... Ts>
+constexpr auto swap(Variant<Storage, Ts...>& lhs,
+                    Variant<Storage, Ts...>& rhs) noexcept(noexcept(lhs.swap(rhs))) -> decltype(lhs.swap(rhs)) {
+  return lhs.swap(rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+  requires(std::three_way_comparable<Ts> && ...)
+constexpr auto operator<=>(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs)
+    -> std::common_comparison_category_t<std::compare_three_way_result_t<Ts>...> {
+  using comparison_result = std::common_comparison_category_t<std::compare_three_way_result_t<Ts>...>;
+
+  if (lhs.valueless_by_exception() && rhs.valueless_by_exception()) {
+    return std::strong_ordering::equal;
+  }
+
+  if (lhs.valueless_by_exception()) {
+    return std::strong_ordering::less;
+  }
+
+  if (rhs.valueless_by_exception()) {
+    return std::strong_ordering::greater;
+  }
+
+  if (auto index_comparison = lhs.index() <=> rhs.index(); index_comparison != 0) {
+    // different alternatives active
+    return index_comparison;
+  }
+
+  return slo::visit<comparison_result>(
+      []<typename T>(T const& lhs_value, T const& rhs_value) -> comparison_result {
+        // compare values
+        return lhs_value <=> rhs_value;
+      },
+      lhs, rhs);
+}
+
+template <typename Operator>
+struct ComparisonVisitor {
+  template <typename T1, typename T2>
+  constexpr bool operator()(T1&& lhs, T2&& rhs) {
+    static_assert(std::is_convertible_v<decltype(Operator{}(std::forward<T1>(lhs), std::forward<T2>(rhs))), bool>,
+                  "relational operator result isn't implicitly convertible to bool");
+    return Operator{}(std::forward<T1>(lhs), std::forward<T2>(rhs));
+  }
+};
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator==(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (lhs.index() != rhs.index()) {
+    // different alternatives active
+    return false;
+  }
+  if (lhs.valueless_by_exception()) {
+    // both are valueless
+    return true;
+  }
+
+  return slo::visit<bool>(ComparisonVisitor<std::equal_to<>>{}, lhs, rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator!=(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (lhs.index() != rhs.index()) {
+    // different alternatives active
+    return true;
+  }
+  if (lhs.valueless_by_exception()) {
+    // both are valueless
+    return false;
+  }
+
+  return slo::visit<bool>(ComparisonVisitor<std::not_equal_to<>>{}, lhs, rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator<(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (rhs.valueless_by_exception()) {
+    return false;
+  }
+  if (lhs.valueless_by_exception()) {
+    return true;
+  }
+  if (lhs.index() < rhs.index()) {
+    return true;
+  }
+  if (lhs.index() > rhs.index()) {
+    return false;
+  }
+  return slo::visit<bool>(ComparisonVisitor<std::less<>>{}, lhs, rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator>(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (lhs.valueless_by_exception()) {
+    return false;
+  }
+  if (rhs.valueless_by_exception()) {
+    return true;
+  }
+  if (lhs.index() > rhs.index()) {
+    return true;
+  }
+  if (lhs.index() < rhs.index()) {
+    return false;
+  }
+  return slo::visit<bool>(ComparisonVisitor<std::greater<>>{}, lhs, rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator<=(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (lhs.valueless_by_exception()) {
+    return false;
+  }
+  if (rhs.valueless_by_exception()) {
+    return true;
+  }
+  if (lhs.index() < rhs.index()) {
+    return true;
+  }
+  if (lhs.index() > rhs.index()) {
+    return false;
+  }
+  return slo::visit<bool>(ComparisonVisitor<std::less_equal<>>{}, lhs, rhs);
+}
+
+template <template <typename...> class S1, template <typename...> class S2, typename... Ts>
+constexpr bool operator>=(Variant<S1, Ts...> const& lhs, Variant<S2, Ts...> const& rhs) {
+  if (rhs.valueless_by_exception()) {
+    return false;
+  }
+  if (lhs.valueless_by_exception()) {
+    return true;
+  }
+  if (lhs.index() > rhs.index()) {
+    return true;
+  }
+  if (lhs.index() < rhs.index()) {
+    return false;
+  }
+  return slo::visit<bool>(ComparisonVisitor<std::greater_equal<>>{}, lhs, rhs);
+}
+
 }  // namespace impl
+
+struct monostate {};
+
+constexpr bool operator==(monostate, monostate) noexcept {
+  return true;
+}
+constexpr std::strong_ordering operator<=>(monostate, monostate) noexcept {
+  return std::strong_ordering::equal;
+}
 
 //? [variant.helper], variant helper classes
 
@@ -337,7 +518,7 @@ constexpr decltype(auto) visit(F&& visitor, Vs&&... variants) {
                                                                  : max_index <= 64 ? 3
                                                                                    : 4
                                                                : 0;
-    using visit_helper = impl::VisitStrategy<strategy>;
+    using visit_helper              = impl::VisitStrategy<strategy>;
     return visit_helper::template visit<R>(std::forward<F>(visitor), std::forward<Vs>(variants)...);
   }
 }
@@ -449,9 +630,6 @@ template <auto... Ptrs, typename... Args>
 Union<Ptrs...> make_variant(Args&&... args) {
   return {std::forward<Args>(args)...};
 }
-
-struct monostate {};
-
 }  // namespace slo
 
 template <>
