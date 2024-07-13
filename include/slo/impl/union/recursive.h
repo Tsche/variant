@@ -7,9 +7,6 @@ namespace slo::impl {
 template <bool Trivial, typename... Ts>
 union RecursiveUnion;
 
-template <bool Trivial>
-union RecursiveUnion<Trivial>{};
-
 template <bool Trivial, typename T>
 union RecursiveUnion<Trivial, T> {
   T value;
