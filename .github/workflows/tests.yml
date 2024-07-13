@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+    branches: ["master", "develop"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: dnf -y install conan
+
+    - name: Set up Conan profile
+      run: |
+        conan profile detect
+        cp .github/conan.profile `conan profile path default`
+
+    - uses: actions/checkout@v3
+    - name: Build
+      run: conan build . --build=missing -o sanitizers=True -s build_type=Debug
+
+    - name: Test Package
+      run: |
+        conan editable add .
+        conan test test_package slo/0.1 -s build_type=Debug
+
+    - name: Test
+      run: ./build/Debug/slo_test

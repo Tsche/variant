@@ -1,0 +1,115 @@
+#pragma once
+#include <utility>
+#include <slo/util/compat.h>
+#include <slo/impl/concepts.h>
+
+@%max 3
+@{
+
+def generate(maximum: int, fmt: str, join_str: str = ", "):
+    return join_str.join(fmt.format(idx) for idx in range(maximum))
+
+def types(count): 
+    return generate(count, "typename T{}")
+def typenames(count): 
+    return generate(count, "T{}")
+def members(count): 
+    return generate(count, "T{0} alternative_{0};", "\n")
+def no_trivial_dtors(count): 
+    return generate(count, "!std::is_trivially_destructible_v<T{}>", " || ")
+}@
+
+
+namespace slo::impl {
+template <bool Trivial, typename... Ts>
+union RecursiveUnion;
+
+template <bool Trivial, typename T>
+union RecursiveUnion<Trivial, T> {
+  T value;
+
+  constexpr RecursiveUnion(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)  = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)  = default;
+  constexpr ~RecursiveUnion() = default;
+  constexpr ~RecursiveUnion() requires (!Trivial) {}
+
+  template <typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<0>, Args&&... args) 
+    : value{std::forward<Args>(args)...} {}
+
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(has_index<T>)
+  {
+    return value.tag;
+  }
+
+  template <std::size_t N, typename Self>
+  constexpr decltype(auto) get(this Self&& self) {
+    static_assert(N == 0);
+    if constexpr (has_unwrap<T>) {
+      return std::forward<Self>(self).value.unwrap();
+    } else {
+      return compat::forward_like<Self>(std::forward<Self>(self).value);
+    }
+  }
+};
+
+@[for N in range(__max__)]
+template <bool Trivial, @types(2**N), typename... Ts> 
+requires (sizeof...(Ts) != 0)
+union RecursiveUnion<Trivial, @typenames(2**N), Ts...>{
+  @members(2**N)
+  RecursiveUnion<Trivial, Ts...> tail;
+
+  constexpr RecursiveUnion(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion(RecursiveUnion&&)  = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion const&) = default;
+  constexpr RecursiveUnion& operator=(RecursiveUnion&&)  = default;
+  constexpr ~RecursiveUnion() = default;
+  constexpr ~RecursiveUnion() requires (!Trivial) {}
+
+@[for Idx in range(2**N)]
+  template <typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<@Idx>, Args&&... args) 
+    : alternative_@Idx {std::forward<Args>(args)...} {}
+@[end for]
+
+  template <std::size_t N, typename... Args>
+  constexpr explicit RecursiveUnion(std::in_place_index_t<N>, Args&&... args)
+      : tail{std::in_place_index_t<N - @(2**N)>{}, std::forward<Args>(args)...} {}
+
+  [[nodiscard]] constexpr std::size_t index() const
+    requires(@(' && '.join(f"has_index<T{idx}>" for idx in range(2**N))))
+  {
+    @[for Idx in range(2**N)]@
+    if (compat::is_within_lifetime(&alternative_@Idx .tag)) {
+      return alternative_@Idx .tag;
+    } else
+    @[end for]@
+    {
+      return tail.index();
+    }
+  }
+
+  template <std::size_t N, typename Self>
+  constexpr decltype(auto) get(this Self&& self) {
+    @[for Idx in range(2**N)]@
+    if constexpr (N == @Idx) {
+      if constexpr (has_unwrap<T@Idx>) {
+        return std::forward<Self>(self).alternative_@Idx .unwrap();
+      } else {
+        return compat::forward_like<Self>(std::forward<Self>(self).alternative_@Idx);
+      }
+    } else
+    @[end for]@
+    {
+      return std::forward<Self>(self).tail.template get<N - @(2**N)>();
+    }
+  }
+
+};
+@[end for]
+
+}  // namespace slo::impl

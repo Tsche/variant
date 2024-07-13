@@ -1,0 +1,1 @@
+target_sources(slo_test PRIVATE monostate.cpp variant.cpp)
